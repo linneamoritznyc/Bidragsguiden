@@ -1095,7 +1095,7 @@ Om användaren ställt en specifik fråga, besvara den i "summary"-fältet och a
                         cursor: multiSelect.length > 0 ? "pointer" : "default",
                         fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
                       }}
-                    >Ga vidare →</button>
+                    >Gå vidare →</button>
                   )}
                 </div>
               </div>
