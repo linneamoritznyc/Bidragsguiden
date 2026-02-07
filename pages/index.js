@@ -1,6 +1,16 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Head from "next/head";
 import { QUIZ_CATEGORIES } from "../components/questions";
+import {
+  getSession,
+  saveSearch,
+  updateSearch,
+  saveFeedback,
+  deleteFeedback,
+  getSearchHistory,
+  deleteSearch,
+} from "../lib/supabase";
+import { resultToText, copyToClipboard, downloadAsFile } from "../lib/export";
 
 const LoadingDots = () => {
   const [dots, setDots] = useState(0);
@@ -231,9 +241,34 @@ export default function Home() {
   const [feedback, setFeedback] = useState({}); // { index: { eligible: "yes"/"no", reason: "..." } }
   const [refineCount, setRefineCount] = useState(0);
   const [refining, setRefining] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
+  const [searchId, setSearchId] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
   const resultRef = useRef(null);
 
   const categories = QUIZ_CATEGORIES;
+
+  // Initialize Supabase session and load history
+  useEffect(() => {
+    async function init() {
+      const sid = await getSession();
+      if (sid) {
+        setSessionId(sid);
+        const hist = await getSearchHistory(sid);
+        setHistory(hist);
+      }
+    }
+    init();
+  }, []);
+
+  const refreshHistory = useCallback(async () => {
+    if (sessionId) {
+      const hist = await getSearchHistory(sessionId);
+      setHistory(hist);
+    }
+  }, [sessionId]);
 
   const transition = (callback) => {
     setFadeIn(false);
@@ -274,6 +309,21 @@ export default function Home() {
 
   const handleFeedbackChange = (index, value) => {
     setFeedback((prev) => ({ ...prev, [index]: value }));
+
+    // Persist to Supabase
+    if (searchId && result?.benefits?.[index]) {
+      if (value.eligible) {
+        saveFeedback({
+          searchId,
+          benefitIndex: index,
+          benefitName: result.benefits[index].name,
+          eligible: value.eligible,
+          reason: value.reason,
+        });
+      } else {
+        deleteFeedback({ searchId, benefitIndex: index });
+      }
+    }
   };
 
   const buildPrompt = (finalAnswers) => {
@@ -436,6 +486,18 @@ Inkludera 6-12 relevanta bidrag/stöd, sorterade efter deadline (närmast deadli
     try {
       const parsed = await callAPI(`${contextPrompt}\n\n${jsonInstructions}`);
       setResult(parsed);
+
+      // Save to Supabase
+      if (sessionId) {
+        const sid = await saveSearch({
+          sessionId,
+          answers: finalAnswers,
+          result: parsed,
+          refineCount: 0,
+        });
+        setSearchId(sid);
+        refreshHistory();
+      }
     } catch (err) {
       console.error("Error:", err);
       setError("Något gick fel. Försök igen om en stund.");
@@ -488,7 +550,13 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
       const parsed = await callAPI(`${feedbackPrompt}\n\n${jsonInstructions}`);
       setResult(parsed);
       setFeedback({});
-      setRefineCount((c) => c + 1);
+      const newRefineCount = refineCount + 1;
+      setRefineCount(newRefineCount);
+
+      // Update in Supabase
+      if (searchId) {
+        updateSearch({ searchId, result: parsed, refineCount: newRefineCount });
+      }
     } catch (err) {
       console.error("Refine error:", err);
       setError("Något gick fel vid förfining. Försök igen.");
@@ -506,7 +574,40 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
       setError(null);
       setFeedback({});
       setRefineCount(0);
+      setSearchId(null);
+      setShowHistory(false);
     });
+  };
+
+  const loadFromHistory = (entry) => {
+    transition(() => {
+      setAnswers(entry.answers || {});
+      setResult(entry.result);
+      setFeedback({});
+      setRefineCount(entry.refine_count || 0);
+      setSearchId(entry.id);
+      setStep(categories.length);
+      setShowHistory(false);
+    });
+  };
+
+  const handleDeleteHistory = async (id) => {
+    await deleteSearch(id);
+    refreshHistory();
+  };
+
+  const handleCopy = async () => {
+    const text = resultToText(result, answers);
+    const ok = await copyToClipboard(text);
+    if (ok) {
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    }
+  };
+
+  const handleDownload = () => {
+    const text = resultToText(result, answers);
+    downloadAsFile(text);
   };
 
   const progress = step >= 0 ? (step / categories.length) * 100 : 0;
@@ -652,10 +753,107 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                   marginTop: 32, display: "flex", justifyContent: "center", gap: 20,
                   fontSize: 12, color: "#475569", flexWrap: "wrap",
                 }}>
-                  <span>🔒 Ingen data sparas</span>
+                  <span>🔒 Säker i molnet</span>
                   <span>⚡ Tar 1 minut</span>
                   <span>🤖 AI-driven</span>
                 </div>
+
+                {/* History section */}
+                {history.length > 0 && !showHistory && (
+                  <button
+                    onClick={() => setShowHistory(true)}
+                    style={{
+                      marginTop: 24, background: "rgba(255,255,255,0.03)",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: 12, padding: "14px 24px",
+                      color: "#64748b", fontSize: 13, cursor: "pointer",
+                      fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
+                      display: "inline-flex", alignItems: "center", gap: 8,
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.borderColor = "rgba(56, 189, 248, 0.3)";
+                      e.currentTarget.style.color = "#94a3b8";
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+                      e.currentTarget.style.color = "#64748b";
+                    }}
+                  >
+                    📋 Visa tidigare sökningar ({history.length})
+                  </button>
+                )}
+
+                {showHistory && (
+                  <div style={{ marginTop: 24, textAlign: "left" }}>
+                    <div style={{
+                      display: "flex", justifyContent: "space-between",
+                      alignItems: "center", marginBottom: 12,
+                    }}>
+                      <h3 style={{ fontSize: 15, fontWeight: 600, margin: 0, color: "#94a3b8" }}>
+                        Tidigare sökningar
+                      </h3>
+                      <button
+                        onClick={() => setShowHistory(false)}
+                        style={{
+                          background: "none", border: "none", color: "#64748b",
+                          fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                        }}
+                      >Dölj ✕</button>
+                    </div>
+                    {history.map((entry) => (
+                      <div
+                        key={entry.id}
+                        style={{
+                          background: "rgba(255,255,255,0.02)",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          borderRadius: 12, padding: "14px 16px",
+                          marginBottom: 8, cursor: "pointer",
+                          transition: "all 0.2s",
+                        }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.borderColor = "rgba(56, 189, 248, 0.3)";
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                          <div
+                            onClick={() => loadFromHistory(entry)}
+                            style={{ flex: 1 }}
+                          >
+                            <div style={{
+                              fontSize: 13, color: "#cbd5e1", fontWeight: 500,
+                              marginBottom: 4, lineHeight: 1.4,
+                            }}>
+                              {entry.result?.summary
+                                ? entry.result.summary.slice(0, 100) + (entry.result.summary.length > 100 ? "..." : "")
+                                : "Sökning"}
+                            </div>
+                            <div style={{ display: "flex", gap: 12, fontSize: 11, color: "#475569" }}>
+                              <span>{entry.result?.benefits?.length || 0} bidrag</span>
+                              {entry.result?.total_potential && (
+                                <span style={{ color: "#10b981" }}>{entry.result.total_potential}</span>
+                              )}
+                              <span>{new Date(entry.created_at).toLocaleDateString("sv-SE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteHistory(entry.id); }}
+                            style={{
+                              background: "none", border: "none", color: "#475569",
+                              fontSize: 14, cursor: "pointer", padding: "4px 8px",
+                              borderRadius: 6, transition: "all 0.2s",
+                            }}
+                            onMouseOver={(e) => { e.currentTarget.style.color = "#ef4444"; }}
+                            onMouseOut={(e) => { e.currentTarget.style.color = "#475569"; }}
+                            title="Ta bort"
+                          >✕</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -854,6 +1052,38 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                     onFeedbackChange={handleFeedbackChange}
                   />
                 ))}
+
+                {/* Export buttons */}
+                <div style={{
+                  display: "flex", gap: 8, marginTop: 16,
+                }}>
+                  <button
+                    onClick={handleCopy}
+                    style={{
+                      flex: 1, padding: "12px", borderRadius: 10,
+                      background: "rgba(255,255,255,0.03)",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      color: copySuccess ? "#10b981" : "#64748b",
+                      fontSize: 13, fontWeight: 500, cursor: "pointer",
+                      fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
+                    }}
+                  >
+                    {copySuccess ? "✓ Kopierad!" : "📋 Kopiera rapport"}
+                  </button>
+                  <button
+                    onClick={handleDownload}
+                    style={{
+                      flex: 1, padding: "12px", borderRadius: 10,
+                      background: "rgba(255,255,255,0.03)",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      color: "#64748b",
+                      fontSize: 13, fontWeight: 500, cursor: "pointer",
+                      fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
+                    }}
+                  >
+                    📥 Ladda ner .txt
+                  </button>
+                </div>
 
                 {/* Refine button */}
                 {hasFeedback && (
