@@ -80,6 +80,10 @@ export const QUIZ_CATEGORIES = [
       { label: "Marknadsföring / Försäljning", value: "marketing_sales" },
       { label: "Starta eget-stöd", value: "startup_support" },
       { label: "Forskning & Innovation", value: "rnd" },
+      { label: "Lokaler / Expansion / Flytt", value: "premises" },
+      { label: "Patent / Immaterialrätt", value: "ip_patents" },
+      { label: "Ekonomi / Likviditet", value: "finance_liquidity" },
+      { label: "Omställning / Ny inriktning", value: "pivot" },
       { label: "Vet inte riktigt än", value: "unsure" },
     ],
     multi: true,
@@ -99,8 +103,8 @@ export const QUIZ_CATEGORIES = [
   },
   {
     id: "industry",
-    question: "Vilken bransch ligger närmast?",
-    description: "Välj det som stämmer bäst — många bidrag täcker flera branscher",
+    question: "Vilken bransch ligger närmast? (Välj alla som stämmer)",
+    description: "Välj en eller flera — många bidrag täcker flera branscher",
     options: [
       { label: "Tech / IT / SaaS", value: "tech" },
       { label: "Handel / E-commerce", value: "ecommerce" },
@@ -119,7 +123,7 @@ export const QUIZ_CATEGORIES = [
       { label: "Utbildning", value: "education" },
       { label: "Annat / Blandat", value: "other" },
     ],
-    multi: false,
+    multi: true,
   },
   {
     id: "offering_type",

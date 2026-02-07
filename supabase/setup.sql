@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS bg_feedback (
   search_id UUID NOT NULL REFERENCES bg_searches(id) ON DELETE CASCADE,
   benefit_index INT NOT NULL,
   benefit_name TEXT NOT NULL,
-  eligible TEXT NOT NULL CHECK (eligible IN ('yes', 'no')),
+  eligible TEXT NOT NULL CHECK (eligible IN ('yes', 'no', 'unsure')),
   reason TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(search_id, benefit_index)

@@ -37,13 +37,15 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange }) {
   };
   const p = priorityColors[benefit.priority] || priorityColors.medium;
 
-  const eligibility = feedback?.eligible; // "yes", "no", or undefined
+  const eligibility = feedback?.eligible; // "yes", "no", "unsure", or undefined
 
   const cardBorder = eligibility === "no"
     ? "rgba(239, 68, 68, 0.3)"
     : eligibility === "yes"
       ? "rgba(16, 185, 129, 0.4)"
-      : p.border;
+      : eligibility === "unsure"
+        ? "rgba(251, 191, 36, 0.4)"
+        : p.border;
 
   const cardOpacity = eligibility === "no" ? 0.6 : 1;
 
@@ -166,19 +168,50 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange }) {
         paddingTop: 12, marginTop: 4,
       }}>
         <div style={{ fontSize: 11, color: "#475569", marginBottom: 8 }}>Stämmer detta för dig?</div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 6 }}>
           <button
-            onClick={() => onFeedbackChange(index, { eligible: eligibility === "yes" ? undefined : "yes", reason: "" })}
+            onClick={() => {
+              if (eligibility === "yes") {
+                onFeedbackChange(index, { eligible: undefined, reason: "" });
+                setReasonInput("");
+                setExpanded(false);
+              } else {
+                onFeedbackChange(index, { eligible: "yes", reason: reasonInput });
+                setExpanded(true);
+              }
+            }}
             style={{
               flex: 1, padding: "10px", borderRadius: 8, border: "none",
-              fontSize: 13, fontWeight: 600, cursor: "pointer",
+              fontSize: 12, fontWeight: 600, cursor: "pointer",
               fontFamily: "'DM Sans', sans-serif",
               background: eligibility === "yes" ? "rgba(16, 185, 129, 0.2)" : "rgba(255,255,255,0.04)",
               color: eligibility === "yes" ? "#10b981" : "#64748b",
               transition: "all 0.2s",
             }}
           >
-            ✓ Kan vara aktuellt
+            Kan vara aktuellt
+          </button>
+          <button
+            onClick={() => {
+              if (eligibility === "unsure") {
+                onFeedbackChange(index, { eligible: undefined, reason: "" });
+                setReasonInput("");
+                setExpanded(false);
+              } else {
+                onFeedbackChange(index, { eligible: "unsure", reason: reasonInput });
+                setExpanded(true);
+              }
+            }}
+            style={{
+              flex: 1, padding: "10px", borderRadius: 8, border: "none",
+              fontSize: 12, fontWeight: 600, cursor: "pointer",
+              fontFamily: "'DM Sans', sans-serif",
+              background: eligibility === "unsure" ? "rgba(251, 191, 36, 0.2)" : "rgba(255,255,255,0.04)",
+              color: eligibility === "unsure" ? "#fbbf24" : "#64748b",
+              transition: "all 0.2s",
+            }}
+          >
+            Vet ej
           </button>
           <button
             onClick={() => {
@@ -192,27 +225,33 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange }) {
             }}
             style={{
               flex: 1, padding: "10px", borderRadius: 8, border: "none",
-              fontSize: 13, fontWeight: 600, cursor: "pointer",
+              fontSize: 12, fontWeight: 600, cursor: "pointer",
               fontFamily: "'DM Sans', sans-serif",
               background: eligibility === "no" ? "rgba(239, 68, 68, 0.2)" : "rgba(255,255,255,0.04)",
               color: eligibility === "no" ? "#ef4444" : "#64748b",
               transition: "all 0.2s",
             }}
           >
-            ✗ Inte aktuellt
+            Inte aktuellt
           </button>
         </div>
 
-        {/* Reason input - shown when marked as not eligible */}
-        {eligibility === "no" && expanded && (
+        {/* Comment input - shown when any feedback button is active */}
+        {eligibility && expanded && (
           <div style={{ marginTop: 10, animation: "fadeSlide 0.3s ease" }}>
             <textarea
               value={reasonInput}
               onChange={(e) => {
                 setReasonInput(e.target.value);
-                onFeedbackChange(index, { eligible: "no", reason: e.target.value });
+                onFeedbackChange(index, { eligible, reason: e.target.value });
               }}
-              placeholder="Valfritt: Varför passar det inte? T.ex. 'Vi har för få anställda' eller 'Vi är inte i rätt län'"
+              placeholder={
+                eligibility === "yes"
+                  ? "Valfritt: Kommentar, t.ex. 'Detta passar perfekt' eller 'Vill ha mer info'"
+                  : eligibility === "unsure"
+                    ? "Valfritt: Vad är du osäker på? T.ex. 'Vet inte om vi uppfyller storlekskravet'"
+                    : "Valfritt: Varför passar det inte? T.ex. 'Vi har för få anställda' eller 'Vi är inte i rätt län'"
+              }
               style={{
                 width: "100%", minHeight: 60, padding: "10px 12px",
                 borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)",
@@ -238,7 +277,7 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [fadeIn, setFadeIn] = useState(true);
   const [infoPanel, setInfoPanel] = useState(null);
-  const [feedback, setFeedback] = useState({}); // { index: { eligible: "yes"/"no", reason: "..." } }
+  const [feedback, setFeedback] = useState({}); // { index: { eligible: "yes"/"no"/"unsure", reason: "..." } }
   const [refineCount, setRefineCount] = useState(0);
   const [refining, setRefining] = useState(false);
   const [sessionId, setSessionId] = useState(null);
@@ -272,6 +311,16 @@ export default function Home() {
       setHistory(hist);
     }
   }, [sessionId]);
+
+  // Restore multiSelect when navigating back to a multi-select question
+  useEffect(() => {
+    const current = categories[step];
+    if (current?.multi && answers[current.id]) {
+      setMultiSelect(Array.isArray(answers[current.id]) ? answers[current.id] : []);
+    } else if (current?.multi) {
+      setMultiSelect([]);
+    }
+  }, [step]);
 
   const transition = (callback) => {
     setFadeIn(false);
@@ -376,6 +425,10 @@ export default function Home() {
       marketing_sales: "marknadsföring/försäljning",
       startup_support: "starta eget-stöd",
       rnd: "forskning & innovation",
+      premises: "lokaler/expansion/flytt",
+      ip_patents: "patent/immaterialrätt",
+      finance_liquidity: "ekonomi/likviditet",
+      pivot: "omställning/ny inriktning",
       unsure: "osäker på vad de behöver",
     };
     const revenueMap = {
@@ -406,6 +459,9 @@ export default function Home() {
     const needs = Array.isArray(finalAnswers.needs)
       ? finalAnswers.needs.map((n) => needsMap[n]).join(", ")
       : "ej angivet";
+    const industries = Array.isArray(finalAnswers.industry)
+      ? finalAnswers.industry.map((i) => industryMap[i]).join(", ")
+      : industryMap[finalAnswers.industry] || "ej angivet";
 
     return `Du är en expert på ALLA svenska företagsstöd, bidrag och finansieringsmöjligheter. Du har djup kunskap om bidrag från ALLA dessa källor:
 
@@ -447,7 +503,7 @@ Antal anställda: ${employeesMap[finalAnswers.employees] || "ej angivet"}
 Län: ${regionMap[finalAnswers.region] || "ej angivet"}
 Behov: ${needs}
 Årsomsättning: ${revenueMap[finalAnswers.revenue] || "ej angivet"}
-Bransch: ${industryMap[finalAnswers.industry] || "ej angivet"}
+Bransch: ${industries}
 Erbjudande: ${offeringMap[finalAnswers.offering_type] || "ej angivet"}
 
 VIKTIGT:
@@ -568,12 +624,21 @@ VIKTIGT om recommendations-fältet:
 
     const eligible = feedbackEntries
       .filter(([, fb]) => fb.eligible === "yes")
-      .map(([idx]) => {
+      .map(([idx, fb]) => {
         const benefit = result.benefits[parseInt(idx)];
-        return `- "${benefit.name}" (aktuellt, användaren vill ha mer av denna typ)`;
+        const comment = fb.reason ? ` — Kommentar: ${fb.reason}` : "";
+        return `- "${benefit.name}" (aktuellt, användaren vill ha mer av denna typ${comment})`;
       });
 
-    if (notEligible.length === 0 && eligible.length === 0) return;
+    const unsure = feedbackEntries
+      .filter(([, fb]) => fb.eligible === "unsure")
+      .map(([idx, fb]) => {
+        const benefit = result.benefits[parseInt(idx)];
+        const comment = fb.reason ? ` — Fråga: ${fb.reason}` : "";
+        return `- "${benefit.name}" (användaren vet inte om de kvalificerar${comment})`;
+      });
+
+    if (notEligible.length === 0 && eligible.length === 0 && unsure.length === 0) return;
 
     setRefining(true);
     setError(null);
@@ -590,10 +655,13 @@ ANVÄNDARENS FEEDBACK PÅ TIDIGARE REKOMMENDATIONER:
     if (eligible.length > 0) {
       feedbackPrompt += `\nAktuella (hitta fler av denna typ):\n${eligible.join("\n")}`;
     }
+    if (unsure.length > 0) {
+      feedbackPrompt += `\nOsäkra (ge mer detalj och förtydliga kraven så användaren kan avgöra):\n${unsure.join("\n")}`;
+    }
 
     feedbackPrompt += `
 
-Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag som inte passar baserat på användarens anledningar. Ersätt dem med bättre matchningar. Prioritera typer av bidrag som användaren markerat som aktuella.`;
+Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag som inte passar baserat på användarens anledningar. Ersätt dem med bättre matchningar. Prioritera typer av bidrag som användaren markerat som aktuella. För bidrag markerade som "osäkra" — behåll dem men ge MYCKET mer detalj om exakta krav och villkor så användaren kan avgöra om de kvalificerar.`;
 
     try {
       const parsed = await callAPI(`${feedbackPrompt}\n\n${jsonInstructions}`);
@@ -988,33 +1056,41 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                     );
                   })}
                 </div>
-                {current.multi && (
-                  <button
-                    onClick={() => handleMultiConfirm(current.id)}
-                    disabled={multiSelect.length === 0}
-                    style={{
-                      marginTop: 20, width: "100%",
-                      background: multiSelect.length > 0
-                        ? "linear-gradient(135deg, #38bdf8, #10b981)"
-                        : "rgba(255,255,255,0.05)",
-                      color: multiSelect.length > 0 ? "#0a1628" : "#475569",
-                      border: "none", borderRadius: 12,
-                      padding: "14px", fontSize: 15, fontWeight: 600,
-                      cursor: multiSelect.length > 0 ? "pointer" : "default",
-                      fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
-                    }}
-                  >Fortsätt →</button>
-                )}
-                {step > 0 && (
-                  <button
-                    onClick={() => transition(() => setStep(step - 1))}
-                    style={{
-                      marginTop: 12, background: "none", border: "none",
-                      color: "#64748b", fontSize: 13, cursor: "pointer",
-                      fontFamily: "'DM Sans', sans-serif", padding: "8px 0",
-                    }}
-                  >← Tillbaka</button>
-                )}
+                <div style={{
+                  display: "flex", justifyContent: "space-between",
+                  alignItems: "center", marginTop: 20, gap: 12,
+                }}>
+                  {step > 0 ? (
+                    <button
+                      onClick={() => transition(() => setStep(step - 1))}
+                      style={{
+                        background: "rgba(255,255,255,0.04)",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        borderRadius: 12, padding: "12px 20px",
+                        color: "#94a3b8", fontSize: 14, fontWeight: 500,
+                        cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                        transition: "all 0.2s",
+                      }}
+                    >← Tillbaka</button>
+                  ) : <div />}
+                  {current.multi && (
+                    <button
+                      onClick={() => handleMultiConfirm(current.id)}
+                      disabled={multiSelect.length === 0}
+                      style={{
+                        flex: 1, maxWidth: 260,
+                        background: multiSelect.length > 0
+                          ? "linear-gradient(135deg, #38bdf8, #10b981)"
+                          : "rgba(255,255,255,0.05)",
+                        color: multiSelect.length > 0 ? "#0a1628" : "#475569",
+                        border: "none", borderRadius: 12,
+                        padding: "12px 20px", fontSize: 15, fontWeight: 600,
+                        cursor: multiSelect.length > 0 ? "pointer" : "default",
+                        fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
+                      }}
+                    >Ga vidare →</button>
+                  )}
+                </div>
               </div>
             )}
 
