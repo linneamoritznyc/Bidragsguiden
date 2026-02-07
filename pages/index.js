@@ -162,6 +162,25 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange }) {
         }}>Läs mer på {benefit.agency} →</a>
       )}
 
+      {/* AI answer to user's question */}
+      {benefit.user_answer && (
+        <div style={{
+          padding: "12px 16px", borderRadius: 10, marginBottom: 12,
+          background: "rgba(167, 139, 250, 0.06)",
+          border: "1px solid rgba(167, 139, 250, 0.2)",
+        }}>
+          <div style={{
+            fontSize: 10, color: "#a78bfa", textTransform: "uppercase",
+            letterSpacing: "0.5px", marginBottom: 6, fontWeight: 600,
+          }}>
+            Svar på din fråga
+          </div>
+          <div style={{ fontSize: 13, color: "#cbd5e1", lineHeight: 1.6 }}>
+            {benefit.user_answer}
+          </div>
+        </div>
+      )}
+
       {/* Eligible / Not Eligible buttons */}
       <div style={{
         borderTop: "1px solid rgba(255,255,255,0.06)",
@@ -247,9 +266,9 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange }) {
               }}
               placeholder={
                 eligibility === "yes"
-                  ? "Valfritt: Kommentar, t.ex. 'Detta passar perfekt' eller 'Vill ha mer info'"
+                  ? "Valfritt: Ställ en fråga, t.ex. 'Kan man anställa invandrare med detta stöd?' eller 'Gäller det enskild firma?'"
                   : eligibility === "unsure"
-                    ? "Valfritt: Vad är du osäker på? T.ex. 'Vet inte om vi uppfyller storlekskravet'"
+                    ? "Valfritt: Vad undrar du? T.ex. 'Vet inte om vi uppfyller storlekskravet' eller 'Gäller det min bransch?'"
                     : "Valfritt: Varför passar det inte? T.ex. 'Vi har för få anställda' eller 'Vi är inte i rätt län'"
               }
               style={{
@@ -539,7 +558,8 @@ KRITISKT — ALDRIG lämna användaren utan hopp:
       "how_to_apply": "Kort instruktion för hur man ansöker",
       "url": "Officiell länk till mer info",
       "priority": "high/medium/low (baserat på hur relevant bidraget är för DETTA specifika företag — high = troligt att de kvalificerar, medium = möjligt men osäkert, low = kan vara relevant men matchar inte alla kriterier)",
-      "category": "Kategori: investering/innovation/export/hållbarhet/personal/regional/eu/starta-eget"
+      "category": "Kategori: investering/innovation/export/hållbarhet/personal/regional/eu/starta-eget",
+      "user_answer": "Om användaren ställt en fråga eller skrivit en kommentar om just detta bidrag, BESVARA frågan här direkt och tydligt (2-4 meningar). Om ingen fråga ställts, sätt till null."
     }
   ],
   "recommendations": [
@@ -668,7 +688,12 @@ ANVÄNDARENS FEEDBACK PÅ TIDIGARE REKOMMENDATIONER:
     feedbackPrompt += `
 
 Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag som inte passar baserat på användarens anledningar. Ersätt dem med bättre matchningar. Prioritera typer av bidrag som användaren markerat som aktuella. För bidrag markerade som "osäkra" — behåll dem men ge MYCKET mer detalj om exakta krav och villkor så användaren kan avgöra om de kvalificerar.
-Om användaren ställt en specifik fråga, besvara den i "summary"-fältet och anpassa rekommendationerna därefter.`;
+
+KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
+- Om användaren har skrivit en kommentar eller fråga om ett specifikt bidrag (t.ex. "kan jag anställa invandrare?"), MÅSTE du besvara den frågan i "user_answer"-fältet för just det bidraget.
+- Svara direkt, tydligt och konkret. Användaren vill INTE behöva klicka på en länk och leta själv.
+- Om användaren ställt en allmän fråga i sin kommentar, besvara den också i "summary"-fältet.
+- Varje bidrag som hade en fråga/kommentar från användaren MÅSTE ha ett user_answer med svar.`;
 
     try {
       const parsed = await callAPI(`${feedbackPrompt}\n\n${jsonInstructions}`);
@@ -1185,8 +1210,8 @@ Om användaren ställt en specifik fråga, besvara den i "summary"-fältet och a
                   border: "1px solid rgba(56, 189, 248, 0.1)",
                   fontSize: 13, color: "#64748b", lineHeight: 1.5,
                 }}>
-                  Markera vilka bidrag som passar och vilka som inte gör det.
-                  Klicka sedan <strong style={{ color: "#a78bfa" }}>Förfina</strong> för bättre rekommendationer.
+                  Markera vilka bidrag som passar dig. Skriv gärna frågor i kommentarsfältet — t.ex. "Kan jag anställa invandrare med detta?"
+                  Klicka sedan <strong style={{ color: "#a78bfa" }}>Förfina</strong> så får du svar och bättre rekommendationer.
                 </div>
 
                 <div style={{
