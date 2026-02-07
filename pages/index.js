@@ -15,6 +15,210 @@ const LoadingDots = () => {
   );
 };
 
+// Single grant card with eligibility toggle and feedback
+function GrantCard({ benefit, index, feedback, onFeedbackChange }) {
+  const [expanded, setExpanded] = useState(false);
+  const [reasonInput, setReasonInput] = useState(feedback?.reason || "");
+
+  const priorityColors = {
+    high: { bg: "rgba(16, 185, 129, 0.15)", border: "rgba(16, 185, 129, 0.4)", text: "#10b981", label: "Hög" },
+    medium: { bg: "rgba(96, 165, 250, 0.15)", border: "rgba(96, 165, 250, 0.4)", text: "#60a5fa", label: "Medium" },
+    low: { bg: "rgba(148, 163, 184, 0.1)", border: "rgba(148, 163, 184, 0.3)", text: "#94a3b8", label: "Låg" },
+  };
+  const p = priorityColors[benefit.priority] || priorityColors.medium;
+
+  const eligibility = feedback?.eligible; // "yes", "no", or undefined
+
+  const cardBorder = eligibility === "no"
+    ? "rgba(239, 68, 68, 0.3)"
+    : eligibility === "yes"
+      ? "rgba(16, 185, 129, 0.4)"
+      : p.border;
+
+  const cardOpacity = eligibility === "no" ? 0.6 : 1;
+
+  return (
+    <div style={{
+      background: "rgba(255,255,255,0.02)",
+      border: `1px solid rgba(255,255,255,0.08)`,
+      borderRadius: 14, padding: "20px",
+      marginBottom: 12, borderLeft: `3px solid ${cardBorder}`,
+      opacity: cardOpacity,
+      transition: "all 0.3s ease",
+    }}>
+      {/* Header row */}
+      <div style={{
+        display: "flex", justifyContent: "space-between",
+        alignItems: "flex-start", marginBottom: 8, flexWrap: "wrap", gap: 8,
+      }}>
+        <h4 style={{ fontSize: 16, fontWeight: 600, margin: 0, flex: 1 }}>{benefit.name}</h4>
+        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          {benefit.category && (
+            <span style={{
+              fontSize: 10, fontWeight: 600, color: "#64748b",
+              background: "rgba(255,255,255,0.05)", padding: "3px 8px",
+              borderRadius: 12, textTransform: "uppercase", letterSpacing: "0.5px",
+            }}>{benefit.category}</span>
+          )}
+          <span style={{
+            fontSize: 10, fontWeight: 600, color: p.text,
+            background: p.bg, padding: "3px 8px", borderRadius: 12,
+            border: `1px solid ${p.border}`,
+          }}>{p.label}</span>
+        </div>
+      </div>
+
+      {/* Agency */}
+      <p style={{ fontSize: 12, color: "#38bdf8", margin: "0 0 8px", fontWeight: 500 }}>
+        {benefit.agency}
+      </p>
+
+      {/* Description */}
+      <p style={{ fontSize: 14, color: "#94a3b8", margin: "0 0 12px", lineHeight: 1.5 }}>
+        {benefit.description}
+      </p>
+
+      {/* Info grid - deadline, amount, docs */}
+      <div style={{
+        display: "grid", gridTemplateColumns: "1fr 1fr",
+        gap: 8, marginBottom: 12,
+      }}>
+        {benefit.amount && (
+          <div style={{
+            padding: "8px 12px", borderRadius: 8,
+            background: "rgba(16, 185, 129, 0.06)",
+            border: "1px solid rgba(16, 185, 129, 0.1)",
+          }}>
+            <div style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 2 }}>Belopp</div>
+            <div style={{ fontSize: 13, color: "#10b981", fontWeight: 600 }}>{benefit.amount}</div>
+          </div>
+        )}
+        {benefit.deadline && (
+          <div style={{
+            padding: "8px 12px", borderRadius: 8,
+            background: "rgba(251, 191, 36, 0.06)",
+            border: "1px solid rgba(251, 191, 36, 0.1)",
+          }}>
+            <div style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 2 }}>Deadline</div>
+            <div style={{ fontSize: 13, color: "#fbbf24", fontWeight: 600 }}>{benefit.deadline}</div>
+          </div>
+        )}
+      </div>
+
+      {/* Eligibility requirements */}
+      {benefit.eligibility_summary && (
+        <div style={{
+          padding: "10px 14px", borderRadius: 8, marginBottom: 12,
+          background: "rgba(56, 189, 248, 0.04)",
+          border: "1px solid rgba(56, 189, 248, 0.1)",
+        }}>
+          <div style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>
+            Vem kan söka
+          </div>
+          <div style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.5 }}>
+            {benefit.eligibility_summary}
+          </div>
+        </div>
+      )}
+
+      {/* Required documents */}
+      {benefit.required_docs && (
+        <div style={{
+          padding: "10px 14px", borderRadius: 8, marginBottom: 12,
+          background: "rgba(255,255,255,0.02)",
+          border: "1px solid rgba(255,255,255,0.06)",
+        }}>
+          <div style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>
+            Dokument som behövs
+          </div>
+          <div style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.5 }}>
+            {benefit.required_docs}
+          </div>
+        </div>
+      )}
+
+      {/* How to apply */}
+      <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 12px", lineHeight: 1.5 }}>
+        📝 {benefit.how_to_apply}
+      </p>
+
+      {/* Link */}
+      {benefit.url && (
+        <a href={benefit.url} target="_blank" rel="noopener noreferrer" style={{
+          display: "inline-block", fontSize: 13, color: "#38bdf8",
+          textDecoration: "none", fontWeight: 500, marginBottom: 16,
+        }}>Läs mer på {benefit.agency} →</a>
+      )}
+
+      {/* Eligible / Not Eligible buttons */}
+      <div style={{
+        borderTop: "1px solid rgba(255,255,255,0.06)",
+        paddingTop: 12, marginTop: 4,
+      }}>
+        <div style={{ fontSize: 11, color: "#475569", marginBottom: 8 }}>Stämmer detta för dig?</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={() => onFeedbackChange(index, { eligible: eligibility === "yes" ? undefined : "yes", reason: "" })}
+            style={{
+              flex: 1, padding: "10px", borderRadius: 8, border: "none",
+              fontSize: 13, fontWeight: 600, cursor: "pointer",
+              fontFamily: "'DM Sans', sans-serif",
+              background: eligibility === "yes" ? "rgba(16, 185, 129, 0.2)" : "rgba(255,255,255,0.04)",
+              color: eligibility === "yes" ? "#10b981" : "#64748b",
+              transition: "all 0.2s",
+            }}
+          >
+            ✓ Kan vara aktuellt
+          </button>
+          <button
+            onClick={() => {
+              if (eligibility === "no") {
+                onFeedbackChange(index, { eligible: undefined, reason: "" });
+                setReasonInput("");
+              } else {
+                onFeedbackChange(index, { eligible: "no", reason: reasonInput });
+                setExpanded(true);
+              }
+            }}
+            style={{
+              flex: 1, padding: "10px", borderRadius: 8, border: "none",
+              fontSize: 13, fontWeight: 600, cursor: "pointer",
+              fontFamily: "'DM Sans', sans-serif",
+              background: eligibility === "no" ? "rgba(239, 68, 68, 0.2)" : "rgba(255,255,255,0.04)",
+              color: eligibility === "no" ? "#ef4444" : "#64748b",
+              transition: "all 0.2s",
+            }}
+          >
+            ✗ Inte aktuellt
+          </button>
+        </div>
+
+        {/* Reason input - shown when marked as not eligible */}
+        {eligibility === "no" && expanded && (
+          <div style={{ marginTop: 10, animation: "fadeSlide 0.3s ease" }}>
+            <textarea
+              value={reasonInput}
+              onChange={(e) => {
+                setReasonInput(e.target.value);
+                onFeedbackChange(index, { eligible: "no", reason: e.target.value });
+              }}
+              placeholder="Valfritt: Varför passar det inte? T.ex. 'Vi har för få anställda' eller 'Vi är inte i rätt län'"
+              style={{
+                width: "100%", minHeight: 60, padding: "10px 12px",
+                borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(255,255,255,0.03)", color: "#cbd5e1",
+                fontSize: 13, fontFamily: "'DM Sans', sans-serif",
+                resize: "vertical", lineHeight: 1.4,
+              }}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 export default function Home() {
   const [step, setStep] = useState(-1);
   const [answers, setAnswers] = useState({});
@@ -24,6 +228,9 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [fadeIn, setFadeIn] = useState(true);
   const [infoPanel, setInfoPanel] = useState(null);
+  const [feedback, setFeedback] = useState({}); // { index: { eligible: "yes"/"no", reason: "..." } }
+  const [refineCount, setRefineCount] = useState(0);
+  const [refining, setRefining] = useState(false);
   const resultRef = useRef(null);
 
   const categories = QUIZ_CATEGORIES;
@@ -63,6 +270,10 @@ export default function Home() {
         ? prev.filter((v) => v !== value)
         : [...prev, value]
     );
+  };
+
+  const handleFeedbackChange = (index, value) => {
+    setFeedback((prev) => ({ ...prev, [index]: value }));
   };
 
   const buildPrompt = (finalAnswers) => {
@@ -153,7 +364,7 @@ EU-FONDER:
 - Eurostars
 - NOPEF (nordisk exportfinansiering)
 
-Baserat på detta företags situation, ge en KOMPLETT lista med relevanta stöd, bidrag och finansieringsmöjligheter som företaget kan söka.
+Baserat på detta företags situation, ge en KOMPLETT lista med relevanta stöd, bidrag och finansieringsmöjligheter.
 
 Bolagsform: ${companyTypeMap[finalAnswers.company_type] || "ej angivet"}
 Antal anställda: ${employeesMap[finalAnswers.employees] || "ej angivet"}
@@ -169,21 +380,7 @@ VIKTIGT:
 - Om företaget planerar att starta, inkludera starta eget-stöd`;
   };
 
-  const fetchResults = async (finalAnswers) => {
-    setLoading(true);
-    setError(null);
-    transition(() => setStep(categories.length));
-
-    const contextPrompt = buildPrompt(finalAnswers);
-
-    try {
-      const response = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: `${contextPrompt}
-
-Svara ENBART med giltig JSON (ingen markdown, inga backticks). Formatet ska vara:
+  const jsonInstructions = `Svara ENBART med giltig JSON (ingen markdown, inga backticks). Formatet ska vara:
 {
   "benefits": [
     {
@@ -191,7 +388,10 @@ Svara ENBART med giltig JSON (ingen markdown, inga backticks). Formatet ska vara
       "agency": "Ansvarig myndighet/organisation",
       "description": "Kort beskrivning (1-2 meningar)",
       "amount": "Ungefärligt belopp eller intervall, annars 'Varierar'",
-      "how_to_apply": "Kort instruktion för ansökan",
+      "deadline": "Nästa deadline eller 'Löpande ansökan' om ingen fast deadline",
+      "eligibility_summary": "Kort sammanfattning av vem som kan söka och huvudkraven (2-3 meningar)",
+      "required_docs": "Vilka dokument/underlag som behövs för ansökan",
+      "how_to_apply": "Kort instruktion för hur man ansöker",
       "url": "Officiell länk till mer info",
       "priority": "high/medium/low",
       "category": "Kategori: investering/innovation/export/hållbarhet/personal/regional/eu/starta-eget"
@@ -201,28 +401,99 @@ Svara ENBART med giltig JSON (ingen markdown, inga backticks). Formatet ska vara
   "total_potential": "Ungefärlig total summa företaget potentiellt kan söka"
 }
 
-Inkludera 6-12 relevanta bidrag/stöd, sorterade efter prioritet (high först). Var specifik och korrekt. Inkludera regionala stöd. Blanda inte ihop lån och bidrag — märk tydligt.`,
-        }),
-      });
+Inkludera 6-12 relevanta bidrag/stöd, sorterade efter deadline (närmast deadline först, löpande sist). Var specifik och korrekt. Inkludera regionala stöd. Blanda inte ihop lån och bidrag — märk tydligt.`;
 
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-      }
+  const callAPI = async (prompt) => {
+    const response = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
 
-      const data = await response.json();
-      const text = data.content
-        .map((item) => (item.type === "text" ? item.text : ""))
-        .filter(Boolean)
-        .join("\n");
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status}`);
+    }
 
-      const clean = text.replace(/```json|```/g, "").trim();
-      const parsed = JSON.parse(clean);
+    const data = await response.json();
+    const text = data.content
+      .map((item) => (item.type === "text" ? item.text : ""))
+      .filter(Boolean)
+      .join("\n");
+
+    const clean = text.replace(/```json|```/g, "").trim();
+    return JSON.parse(clean);
+  };
+
+  const fetchResults = async (finalAnswers) => {
+    setLoading(true);
+    setError(null);
+    setFeedback({});
+    setRefineCount(0);
+    transition(() => setStep(categories.length));
+
+    const contextPrompt = buildPrompt(finalAnswers);
+
+    try {
+      const parsed = await callAPI(`${contextPrompt}\n\n${jsonInstructions}`);
       setResult(parsed);
     } catch (err) {
       console.error("Error:", err);
       setError("Något gick fel. Försök igen om en stund.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refineResults = async () => {
+    // Build feedback summary from user's input
+    const feedbackEntries = Object.entries(feedback);
+    const notEligible = feedbackEntries
+      .filter(([, fb]) => fb.eligible === "no")
+      .map(([idx, fb]) => {
+        const benefit = result.benefits[parseInt(idx)];
+        const reason = fb.reason ? ` — Anledning: ${fb.reason}` : "";
+        return `- "${benefit.name}" (ej aktuellt${reason})`;
+      });
+
+    const eligible = feedbackEntries
+      .filter(([, fb]) => fb.eligible === "yes")
+      .map(([idx]) => {
+        const benefit = result.benefits[parseInt(idx)];
+        return `- "${benefit.name}" (aktuellt, användaren vill ha mer av denna typ)`;
+      });
+
+    if (notEligible.length === 0 && eligible.length === 0) return;
+
+    setRefining(true);
+    setError(null);
+
+    const contextPrompt = buildPrompt(answers);
+
+    let feedbackPrompt = `${contextPrompt}
+
+ANVÄNDARENS FEEDBACK PÅ TIDIGARE REKOMMENDATIONER:
+`;
+    if (notEligible.length > 0) {
+      feedbackPrompt += `\nInte aktuella (ta bort dessa och liknande):\n${notEligible.join("\n")}`;
+    }
+    if (eligible.length > 0) {
+      feedbackPrompt += `\nAktuella (hitta fler av denna typ):\n${eligible.join("\n")}`;
+    }
+
+    feedbackPrompt += `
+
+Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag som inte passar baserat på användarens anledningar. Ersätt dem med bättre matchningar. Prioritera typer av bidrag som användaren markerat som aktuella.`;
+
+    try {
+      const parsed = await callAPI(`${feedbackPrompt}\n\n${jsonInstructions}`);
+      setResult(parsed);
+      setFeedback({});
+      setRefineCount((c) => c + 1);
+    } catch (err) {
+      console.error("Refine error:", err);
+      setError("Något gick fel vid förfining. Försök igen.");
+    } finally {
+      setRefining(false);
     }
   };
 
@@ -233,19 +504,15 @@ Inkludera 6-12 relevanta bidrag/stöd, sorterade efter prioritet (high först). 
       setMultiSelect([]);
       setResult(null);
       setError(null);
+      setFeedback({});
+      setRefineCount(0);
     });
   };
 
   const progress = step >= 0 ? (step / categories.length) * 100 : 0;
   const current = categories[step];
 
-  const priorityColors = {
-    high: { bg: "rgba(16, 185, 129, 0.15)", border: "rgba(16, 185, 129, 0.4)", text: "#10b981", label: "Hög prioritet" },
-    medium: { bg: "rgba(96, 165, 250, 0.15)", border: "rgba(96, 165, 250, 0.4)", text: "#60a5fa", label: "Medium" },
-    low: { bg: "rgba(148, 163, 184, 0.1)", border: "rgba(148, 163, 184, 0.3)", text: "#94a3b8", label: "Lägre prioritet" },
-  };
-
-  const accent = "#38bdf8";
+  const hasFeedback = Object.values(feedback).some((fb) => fb.eligible);
   const accentGlow = "rgba(56, 189, 248, 0.3)";
 
   return (
@@ -281,7 +548,7 @@ Inkludera 6-12 relevanta bidrag/stöd, sorterade efter prioritet (high först). 
 
         <div style={{
           position: "relative", zIndex: 1, maxWidth: 640, margin: "0 auto",
-          padding: "40px 20px", minHeight: "100vh",
+          padding: "40px 16px", minHeight: "100vh",
           display: "flex", flexDirection: "column",
         }}>
           {/* Header */}
@@ -344,7 +611,7 @@ Inkludera 6-12 relevanta bidrag/stöd, sorterade efter prioritet (high först). 
                 }}>
                   <span role="img" aria-label="Swedish flag">🇸🇪</span>
                 </div>
-                <h2 style={{ fontSize: 28, fontWeight: 700, margin: "0 0 12px", lineHeight: 1.2 }}>
+                <h2 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 12px", lineHeight: 1.2 }}>
                   Vilka bidrag kan<br />ditt företag få?
                 </h2>
                 <p style={{
@@ -352,8 +619,8 @@ Inkludera 6-12 relevanta bidrag/stöd, sorterade efter prioritet (high först). 
                   maxWidth: 440, margin: "0 auto 12px",
                 }}>
                   Svara på 6 snabba frågor så söker vår AI igenom hundratals
-                  bidrag, stöd och finansieringsmöjligheter från Tillväxtverket,
-                  Vinnova, Almi, Energimyndigheten, EU-fonder och fler.
+                  bidrag från Tillväxtverket, Vinnova, Almi, Energimyndigheten,
+                  EU-fonder och fler.
                 </p>
                 <p style={{
                   fontSize: 13, color: "#64748b", lineHeight: 1.5,
@@ -382,8 +649,8 @@ Inkludera 6-12 relevanta bidrag/stöd, sorterade efter prioritet (high först). 
                 >Hitta bidrag →</button>
 
                 <div style={{
-                  marginTop: 32, display: "flex", justifyContent: "center", gap: 24,
-                  fontSize: 12, color: "#475569",
+                  marginTop: 32, display: "flex", justifyContent: "center", gap: 20,
+                  fontSize: 12, color: "#475569", flexWrap: "wrap",
                 }}>
                   <span>🔒 Ingen data sparas</span>
                   <span>⚡ Tar 1 minut</span>
@@ -395,7 +662,7 @@ Inkludera 6-12 relevanta bidrag/stöd, sorterade efter prioritet (high först). 
             {/* Questions */}
             {step >= 0 && step < categories.length && current && (
               <div>
-                <h2 style={{ fontSize: 22, fontWeight: 600, marginBottom: 8, lineHeight: 1.3 }}>
+                <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8, lineHeight: 1.3 }}>
                   {current.question}
                 </h2>
                 {current.description && (
@@ -407,7 +674,7 @@ Inkludera 6-12 relevanta bidrag/stöd, sorterade efter prioritet (high först). 
                   display: "grid",
                   gridTemplateColumns: current.options.length <= 6 ? "1fr" : "1fr 1fr",
                   gap: 10,
-                  maxHeight: current.options.length > 10 ? 400 : "none",
+                  maxHeight: current.options.length > 10 ? 420 : "none",
                   overflowY: current.options.length > 10 ? "auto" : "visible",
                   paddingRight: current.options.length > 10 ? 4 : 0,
                 }}>
@@ -425,7 +692,7 @@ Inkludera 6-12 relevanta bidrag/stöd, sorterade efter prioritet (high först). 
                         style={{
                           background: isSelected ? "rgba(56, 189, 248, 0.12)" : "rgba(255,255,255,0.03)",
                           border: `1px solid ${isSelected ? "rgba(56, 189, 248, 0.5)" : "rgba(255,255,255,0.08)"}`,
-                          borderRadius: 12, padding: "14px 18px",
+                          borderRadius: 12, padding: "14px 16px",
                           color: isSelected ? "#38bdf8" : "#cbd5e1",
                           fontSize: 14, fontWeight: 500, cursor: "pointer",
                           textAlign: "left", fontFamily: "'DM Sans', sans-serif",
@@ -482,7 +749,7 @@ Inkludera 6-12 relevanta bidrag/stöd, sorterade efter prioritet (high först). 
             )}
 
             {/* Loading */}
-            {step >= categories.length && loading && (
+            {step >= categories.length && (loading || refining) && (
               <div style={{ textAlign: "center", paddingTop: 60 }}>
                 <div style={{
                   width: 60, height: 60, margin: "0 auto 24px",
@@ -492,22 +759,23 @@ Inkludera 6-12 relevanta bidrag/stöd, sorterade efter prioritet (high först). 
                   display: "flex", alignItems: "center", justifyContent: "center",
                   animation: "pulse 2s infinite",
                 }}>
-                  <span style={{ fontSize: 28 }}>📊</span>
+                  <span style={{ fontSize: 28 }}>{refining ? "🔄" : "📊"}</span>
                 </div>
                 <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>
-                  Söker igenom alla bidragskällor<LoadingDots />
+                  {refining ? "Förfinar dina rekommendationer" : "Söker igenom alla bidragskällor"}<LoadingDots />
                 </h3>
                 <p style={{ fontSize: 14, color: "#64748b", lineHeight: 1.5 }}>
-                  Tillväxtverket, Vinnova, Almi, Energimyndigheten,
-                  regionala stöd, EU-fonder och fler
+                  {refining
+                    ? "Anpassar resultaten baserat på din feedback"
+                    : "Tillväxtverket, Vinnova, Almi, Energimyndigheten, regionala stöd, EU-fonder och fler"}
                 </p>
                 <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }`}</style>
               </div>
             )}
 
             {/* Error */}
-            {error && (
-              <div style={{ textAlign: "center", paddingTop: 60 }}>
+            {error && !loading && !refining && (
+              <div style={{ textAlign: "center", paddingTop: 20, marginBottom: 20 }}>
                 <p style={{ color: "#f87171", marginBottom: 16 }}>{error}</p>
                 <button onClick={restart} style={{
                   background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8",
@@ -518,8 +786,23 @@ Inkludera 6-12 relevanta bidrag/stöd, sorterade efter prioritet (high först). 
             )}
 
             {/* Results */}
-            {result && !loading && (
+            {result && !loading && !refining && (
               <div ref={resultRef}>
+                {/* Refine count badge */}
+                {refineCount > 0 && (
+                  <div style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    padding: "5px 12px", borderRadius: 20, marginBottom: 16,
+                    fontSize: 11, fontWeight: 600,
+                    background: "rgba(167, 139, 250, 0.1)",
+                    color: "#a78bfa",
+                    border: "1px solid rgba(167, 139, 250, 0.25)",
+                  }}>
+                    🎯 Förfinad {refineCount} {refineCount === 1 ? "gång" : "gånger"}
+                  </div>
+                )}
+
+                {/* Summary */}
                 <div style={{
                   background: "rgba(16, 185, 129, 0.08)",
                   border: "1px solid rgba(16, 185, 129, 0.2)",
@@ -542,6 +825,17 @@ Inkludera 6-12 relevanta bidrag/stöd, sorterade efter prioritet (high först). 
                   )}
                 </div>
 
+                {/* Instruction */}
+                <div style={{
+                  padding: "12px 16px", borderRadius: 10, marginBottom: 20,
+                  background: "rgba(56, 189, 248, 0.04)",
+                  border: "1px solid rgba(56, 189, 248, 0.1)",
+                  fontSize: 13, color: "#64748b", lineHeight: 1.5,
+                }}>
+                  💡 Markera vilka bidrag som passar och vilka som inte gör det.
+                  Klicka sedan <strong style={{ color: "#a78bfa" }}>Förfina</strong> för bättre rekommendationer.
+                </div>
+
                 <h3 style={{
                   fontSize: 14, fontWeight: 600, color: "#64748b",
                   textTransform: "uppercase", letterSpacing: "1px",
@@ -550,57 +844,42 @@ Inkludera 6-12 relevanta bidrag/stöd, sorterade efter prioritet (high först). 
                   {result.benefits?.length || 0} bidrag och stöd hittade
                 </h3>
 
-                {result.benefits?.map((benefit, i) => {
-                  const p = priorityColors[benefit.priority] || priorityColors.medium;
-                  return (
-                    <div key={i} style={{
-                      background: "rgba(255,255,255,0.02)",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      borderRadius: 14, padding: "20px",
-                      marginBottom: 12, borderLeft: `3px solid ${p.border}`,
-                    }}>
-                      <div style={{
-                        display: "flex", justifyContent: "space-between",
-                        alignItems: "flex-start", marginBottom: 8, flexWrap: "wrap", gap: 8,
-                      }}>
-                        <h4 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>{benefit.name}</h4>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          {benefit.category && (
-                            <span style={{
-                              fontSize: 10, fontWeight: 600, color: "#64748b",
-                              background: "rgba(255,255,255,0.05)", padding: "3px 8px",
-                              borderRadius: 12, textTransform: "uppercase",
-                              letterSpacing: "0.5px",
-                            }}>{benefit.category}</span>
-                          )}
-                          <span style={{
-                            fontSize: 11, fontWeight: 600, color: p.text,
-                            background: p.bg, padding: "3px 10px", borderRadius: 20,
-                            border: `1px solid ${p.border}`, fontFamily: "'Space Mono', monospace",
-                          }}>{p.label}</span>
-                        </div>
-                      </div>
-                      <p style={{
-                        fontSize: 12, color: "#38bdf8",
-                        margin: "0 0 8px", fontWeight: 500,
-                      }}>{benefit.agency}</p>
-                      <p style={{ fontSize: 14, color: "#94a3b8", margin: "0 0 12px", lineHeight: 1.5 }}>{benefit.description}</p>
-                      {benefit.amount && (
-                        <div style={{
-                          fontSize: 13, color: "#10b981", fontWeight: 600,
-                          marginBottom: 8, fontFamily: "'Space Mono', monospace",
-                        }}>💰 {benefit.amount}</div>
-                      )}
-                      <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 10px", lineHeight: 1.5 }}>📝 {benefit.how_to_apply}</p>
-                      {benefit.url && (
-                        <a href={benefit.url} target="_blank" rel="noopener noreferrer" style={{
-                          fontSize: 13, color: "#38bdf8",
-                          textDecoration: "none", fontWeight: 500,
-                        }}>Läs mer →</a>
-                      )}
-                    </div>
-                  );
-                })}
+                {/* Grant cards */}
+                {result.benefits?.map((benefit, i) => (
+                  <GrantCard
+                    key={`${refineCount}-${i}`}
+                    benefit={benefit}
+                    index={i}
+                    feedback={feedback[i]}
+                    onFeedbackChange={handleFeedbackChange}
+                  />
+                ))}
+
+                {/* Refine button */}
+                {hasFeedback && (
+                  <button
+                    onClick={refineResults}
+                    style={{
+                      marginTop: 8, width: "100%",
+                      background: "linear-gradient(135deg, #a78bfa, #38bdf8)",
+                      color: "#0a1628", border: "none", borderRadius: 12,
+                      padding: "16px", fontSize: 15, fontWeight: 700,
+                      cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                      transition: "all 0.2s",
+                      boxShadow: "0 0 20px rgba(167, 139, 250, 0.2)",
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.transform = "translateY(-1px)";
+                      e.currentTarget.style.boxShadow = "0 0 30px rgba(167, 139, 250, 0.3)";
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow = "0 0 20px rgba(167, 139, 250, 0.2)";
+                    }}
+                  >
+                    🎯 Förfina rekommendationer baserat på din feedback
+                  </button>
+                )}
 
                 <div style={{
                   marginTop: 24, padding: "16px", borderRadius: 12,
@@ -616,7 +895,7 @@ Inkludera 6-12 relevanta bidrag/stöd, sorterade efter prioritet (high först). 
                 <button
                   onClick={restart}
                   style={{
-                    marginTop: 20, width: "100%",
+                    marginTop: 16, width: "100%",
                     background: "rgba(56, 189, 248, 0.1)",
                     color: "#38bdf8",
                     border: "1px solid rgba(56, 189, 248, 0.25)",
@@ -624,13 +903,9 @@ Inkludera 6-12 relevanta bidrag/stöd, sorterade efter prioritet (high först). 
                     fontWeight: 600, cursor: "pointer",
                     fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
                   }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.background = "rgba(56, 189, 248, 0.18)";
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.background = "rgba(56, 189, 248, 0.1)";
-                  }}
-                >🔄 Gör om med nya svar</button>
+                  onMouseOver={(e) => { e.currentTarget.style.background = "rgba(56, 189, 248, 0.18)"; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = "rgba(56, 189, 248, 0.1)"; }}
+                >🔄 Börja om från början</button>
               </div>
             )}
           </div>
@@ -719,7 +994,7 @@ Inkludera 6-12 relevanta bidrag/stöd, sorterade efter prioritet (high först). 
                     }}>1</div>
                     <div>
                       <div style={{ fontWeight: 600, color: "#cbd5e1", marginBottom: 2 }}>Du svarar på 6 frågor</div>
-                      Bolagsform, storlek, region, behov, omsättning och bransch. Inget personligt som namn eller orgnummer.
+                      Bolagsform, storlek, region, behov, omsättning och bransch.
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 14, marginBottom: 16 }}>
@@ -732,7 +1007,7 @@ Inkludera 6-12 relevanta bidrag/stöd, sorterade efter prioritet (high först). 
                     }}>2</div>
                     <div>
                       <div style={{ fontWeight: 600, color: "#cbd5e1", marginBottom: 2 }}>AI söker igenom hundratals bidrag</div>
-                      Tillväxtverket, Vinnova, Almi, Energimyndigheten, regionala stöd, EU-fonder — allt matchas mot din profil.
+                      Alla myndigheter, regionala stöd och EU-fonder matchas mot din profil.
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 14, marginBottom: 16 }}>
@@ -744,8 +1019,8 @@ Inkludera 6-12 relevanta bidrag/stöd, sorterade efter prioritet (high först). 
                       fontFamily: "'Space Mono', monospace",
                     }}>3</div>
                     <div>
-                      <div style={{ fontWeight: 600, color: "#cbd5e1", marginBottom: 2 }}>Du får en prioriterad lista</div>
-                      Bidrag, belopp, ansvarig myndighet och hur du ansöker — anpassat för just ditt företag.
+                      <div style={{ fontWeight: 600, color: "#cbd5e1", marginBottom: 2 }}>Du ger feedback, AI lär sig</div>
+                      Markera vad som passar och vad som inte gör det. AI:n förfinar resultaten baserat på din input.
                     </div>
                   </div>
                   <div style={{
@@ -754,7 +1029,7 @@ Inkludera 6-12 relevanta bidrag/stöd, sorterade efter prioritet (high först). 
                   }}>
                     <div style={{ fontWeight: 600, color: "#fbbf24", marginBottom: 4 }}>⚠️ Viktigt</div>
                     Bidragsguiden ger vägledning baserad på AI och ersätter inte professionell rådgivning.
-                    Kontrollera alltid villkor direkt hos respektive myndighet. AI kan ibland ge felaktig information.
+                    Kontrollera alltid villkor direkt hos respektive myndighet.
                   </div>
                 </div>
               </div>
