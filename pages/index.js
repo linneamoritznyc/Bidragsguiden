@@ -1530,16 +1530,22 @@ Om användaren ställt en specifik fråga, besvara den i "summary"-fältet och a
                 </h4>
                 <div style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.7 }}>
                   <p style={{ margin: "0 0 12px" }}>
-                    <span style={{ color: "#10b981", fontWeight: 600 }}>Ingen data sparas.</span>{" "}
-                    Dina svar lagras inte i någon databas. All information försvinner när du stänger sidan.
+                    <span style={{ color: "#10b981", fontWeight: 600 }}>Anonyma sessioner.</span>{" "}
+                    Dina svar sparas kopplat till ett anonymt sessions-ID — inte ditt namn, IP-adress eller annan personlig information.
+                    Sökhistoriken finns kvar så du kan se dina tidigare resultat.
                   </p>
                   <p style={{ margin: "0 0 12px" }}>
                     <span style={{ color: "#10b981", fontWeight: 600 }}>Ingen spårning.</span>{" "}
-                    Inga cookies, inga analytics, inget spårningsskript. Helt anonymt.
+                    Inga cookies, inga analytics, inget spårningsskript. Vi spårar inte hur du använder sidan.
+                  </p>
+                  <p style={{ margin: "0 0 12px" }}>
+                    <span style={{ color: "#10b981", fontWeight: 600 }}>E-post (valfritt).</span>{" "}
+                    Om du väljer att ange din e-post för påminnelser lagras den i vår databas. Du kan avregistrera dig när som helst.
+                    Vi delar aldrig din e-post med tredje part.
                   </p>
                   <p style={{ margin: "0 0 12px" }}>
                     <span style={{ color: "#10b981", fontWeight: 600 }}>AI-behandling.</span>{" "}
-                    Anonyma svar skickas till Claude (Anthropic) för analys. Anthropic lagrar inte API-konversationer
+                    Dina anonyma svar skickas till Claude (Anthropic) för analys. Anthropic lagrar inte API-konversationer
                     och använder inte din data för att träna modeller.
                   </p>
                   <p style={{
@@ -1548,7 +1554,7 @@ Om användaren ställt en specifik fråga, besvara den i "summary"-fältet och a
                     border: "1px solid rgba(56, 189, 248, 0.1)",
                   }}>
                     <span style={{ fontWeight: 600, color: "#cbd5e1" }}>Kort sagt:</span>{" "}
-                    Vi samlar inte in, lagrar inte och delar inte dina uppgifter.
+                    Vi samlar inte in personuppgifter. Dina svar är anonyma. E-post sparas bara om du själv väljer att ange den.
                   </p>
                 </div>
               </div>
@@ -1575,7 +1581,8 @@ Om användaren ställt en specifik fråga, besvara den i "summary"-fältet och a
                     }}>1</div>
                     <div>
                       <div style={{ fontWeight: 600, color: "#cbd5e1", marginBottom: 2 }}>Du svarar på några frågor</div>
-                      Bolagsform, storlek, region, behov, omsättning och bransch.
+                      Bolagsform, ålder, storlek, region, behov, omsättning, bransch och vad företaget erbjuder.
+                      Du kan välja flera branscher och behov om det stämmer.
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 14, marginBottom: 16 }}>
@@ -1588,7 +1595,9 @@ Om användaren ställt en specifik fråga, besvara den i "summary"-fältet och a
                     }}>2</div>
                     <div>
                       <div style={{ fontWeight: 600, color: "#cbd5e1", marginBottom: 2 }}>AI söker igenom hundratals bidrag</div>
-                      Alla myndigheter, regionala stöd och EU-fonder matchas mot din profil.
+                      Tillväxtverket, Vinnova, Almi, Energimyndigheten, Arbetsförmedlingen, Försäkringskassan,
+                      regionala stöd, EU-fonder, RUT/ROT och fler matchas mot din profil.
+                      Varje bidrag får en relevansbedömning (hög, medel, låg) baserat på hur väl det matchar just ditt företag.
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 14, marginBottom: 16 }}>
@@ -1600,17 +1609,36 @@ Om användaren ställt en specifik fråga, besvara den i "summary"-fältet och a
                       fontFamily: "'Space Mono', monospace",
                     }}>3</div>
                     <div>
-                      <div style={{ fontWeight: 600, color: "#cbd5e1", marginBottom: 2 }}>Du ger feedback, AI lär sig</div>
-                      Markera vad som passar och vad som inte gör det. AI:n förfinar resultaten baserat på din input.
+                      <div style={{ fontWeight: 600, color: "#cbd5e1", marginBottom: 2 }}>Du ger feedback och ställer frågor</div>
+                      Markera varje bidrag som "Kan vara aktuellt", "Vet ej" eller "Inte aktuellt".
+                      Klicka sedan Förfina — där kan du även skriva egna frågor, t.ex.
+                      "Finns det något för den som har en diagnos?" eller "Berätta mer om EU-bidrag".
+                      AI:n anpassar resultaten baserat på allt du skrivit.
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 14, marginBottom: 16 }}>
+                    <div style={{
+                      minWidth: 32, height: 32, borderRadius: 8,
+                      background: "rgba(167, 139, 250, 0.1)", border: "1px solid rgba(167, 139, 250, 0.2)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 14, fontWeight: 700, color: "#a78bfa",
+                      fontFamily: "'Space Mono', monospace",
+                    }}>4</div>
+                    <div>
+                      <div style={{ fontWeight: 600, color: "#cbd5e1", marginBottom: 2 }}>Spara och kom tillbaka</div>
+                      Dina sökningar sparas automatiskt i din historik så du kan se dem igen.
+                      Du kan ladda ner resultaten som PDF eller textfil.
+                      Ange din e-post om du vill bli påmind om att söka igen om 6 månader.
                     </div>
                   </div>
                   <div style={{
                     padding: "14px 16px", background: "rgba(251, 191, 36, 0.06)",
                     borderRadius: 8, border: "1px solid rgba(251, 191, 36, 0.15)",
                   }}>
-                    <div style={{ fontWeight: 600, color: "#fbbf24", marginBottom: 4 }}>Viktigt</div>
+                    <div style={{ fontWeight: 600, color: "#fbbf24", marginBottom: 4 }}>Viktigt att veta</div>
                     Bidragsguiden ger vägledning baserad på AI och ersätter inte professionell rådgivning.
-                    Kontrollera alltid villkor direkt hos respektive myndighet.
+                    Kontrollera alltid villkor och deadlines direkt hos respektive myndighet.
+                    Bidragslandskapet förändras löpande — det kan vara värt att göra quizet igen om några månader.
                   </div>
                 </div>
               </div>
