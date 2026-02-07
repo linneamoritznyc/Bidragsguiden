@@ -31,9 +31,9 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange }) {
   const [reasonInput, setReasonInput] = useState(feedback?.reason || "");
 
   const priorityColors = {
-    high: { bg: "rgba(16, 185, 129, 0.15)", border: "rgba(16, 185, 129, 0.4)", text: "#10b981", label: "Hög" },
-    medium: { bg: "rgba(96, 165, 250, 0.15)", border: "rgba(96, 165, 250, 0.4)", text: "#60a5fa", label: "Medium" },
-    low: { bg: "rgba(148, 163, 184, 0.1)", border: "rgba(148, 163, 184, 0.3)", text: "#94a3b8", label: "Låg" },
+    high: { bg: "rgba(16, 185, 129, 0.15)", border: "rgba(16, 185, 129, 0.4)", text: "#10b981", label: "Hög relevans" },
+    medium: { bg: "rgba(96, 165, 250, 0.15)", border: "rgba(96, 165, 250, 0.4)", text: "#60a5fa", label: "Medel relevans" },
+    low: { bg: "rgba(148, 163, 184, 0.1)", border: "rgba(148, 163, 184, 0.3)", text: "#94a3b8", label: "Låg relevans" },
   };
   const p = priorityColors[benefit.priority] || priorityColors.medium;
 
@@ -288,6 +288,8 @@ export default function Home() {
   const [emailInput, setEmailInput] = useState("");
   const [emailSubmitted, setEmailSubmitted] = useState(false);
   const [emailError, setEmailError] = useState(null);
+  const [showRefineDialog, setShowRefineDialog] = useState(false);
+  const [refineComment, setRefineComment] = useState("");
   const resultRef = useRef(null);
 
   const categories = QUIZ_CATEGORIES;
@@ -536,7 +538,7 @@ KRITISKT — ALDRIG lämna användaren utan hopp:
       "required_docs": "Vilka dokument/underlag som behövs för ansökan",
       "how_to_apply": "Kort instruktion för hur man ansöker",
       "url": "Officiell länk till mer info",
-      "priority": "high/medium/low",
+      "priority": "high/medium/low (baserat på hur relevant bidraget är för DETTA specifika företag — high = troligt att de kvalificerar, medium = möjligt men osäkert, low = kan vara relevant men matchar inte alla kriterier)",
       "category": "Kategori: investering/innovation/export/hållbarhet/personal/regional/eu/starta-eget"
     }
   ],
@@ -550,6 +552,8 @@ KRITISKT — ALDRIG lämna användaren utan hopp:
 }
 
 Inkludera 6-12 relevanta bidrag/stöd, sorterade efter deadline (närmast deadline först, löpande sist). Var specifik och korrekt. Inkludera regionala stöd. Blanda inte ihop lån och bidrag — märk tydligt.
+
+VIKTIGT: Använd INGA emojis i texten. Inga symboler som 🎯 💡 📝 ✓ ✗ etc. Ren text utan emojis.
 
 VIKTIGT om recommendations-fältet:
 - Ge ALLTID minst 3 konkreta rekommendationer
@@ -611,7 +615,7 @@ VIKTIGT om recommendations-fältet:
     }
   };
 
-  const refineResults = async () => {
+  const refineResults = async (extraComment) => {
     // Build feedback summary from user's input
     const feedbackEntries = Object.entries(feedback);
     const notEligible = feedbackEntries
@@ -638,9 +642,8 @@ VIKTIGT om recommendations-fältet:
         return `- "${benefit.name}" (användaren vet inte om de kvalificerar${comment})`;
       });
 
-    if (notEligible.length === 0 && eligible.length === 0 && unsure.length === 0) return;
-
     setRefining(true);
+    setShowRefineDialog(false);
     setError(null);
 
     const contextPrompt = buildPrompt(answers);
@@ -658,10 +661,14 @@ ANVÄNDARENS FEEDBACK PÅ TIDIGARE REKOMMENDATIONER:
     if (unsure.length > 0) {
       feedbackPrompt += `\nOsäkra (ge mer detalj och förtydliga kraven så användaren kan avgöra):\n${unsure.join("\n")}`;
     }
+    if (extraComment && extraComment.trim()) {
+      feedbackPrompt += `\n\nANVÄNDARENS EGNA KOMMENTAR/FRÅGA:\n${extraComment.trim()}`;
+    }
 
     feedbackPrompt += `
 
-Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag som inte passar baserat på användarens anledningar. Ersätt dem med bättre matchningar. Prioritera typer av bidrag som användaren markerat som aktuella. För bidrag markerade som "osäkra" — behåll dem men ge MYCKET mer detalj om exakta krav och villkor så användaren kan avgöra om de kvalificerar.`;
+Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag som inte passar baserat på användarens anledningar. Ersätt dem med bättre matchningar. Prioritera typer av bidrag som användaren markerat som aktuella. För bidrag markerade som "osäkra" — behåll dem men ge MYCKET mer detalj om exakta krav och villkor så användaren kan avgöra om de kvalificerar.
+Om användaren ställt en specifik fråga, besvara den i "summary"-fältet och anpassa rekommendationerna därefter.`;
 
     try {
       const parsed = await callAPI(`${feedbackPrompt}\n\n${jsonInstructions}`);
@@ -1182,13 +1189,23 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                   Klicka sedan <strong style={{ color: "#a78bfa" }}>Förfina</strong> för bättre rekommendationer.
                 </div>
 
-                <h3 style={{
-                  fontSize: 14, fontWeight: 600, color: "#64748b",
-                  textTransform: "uppercase", letterSpacing: "1px",
-                  marginBottom: 16, fontFamily: "'Space Mono', monospace",
+                <div style={{
+                  display: "flex", justifyContent: "space-between",
+                  alignItems: "baseline", marginBottom: 16, flexWrap: "wrap", gap: 8,
                 }}>
-                  {result.benefits?.length || 0} bidrag och stöd hittade
-                </h3>
+                  <h3 style={{
+                    fontSize: 14, fontWeight: 600, color: "#64748b",
+                    textTransform: "uppercase", letterSpacing: "1px",
+                    margin: 0, fontFamily: "'Space Mono', monospace",
+                  }}>
+                    {result.benefits?.length || 0} bidrag och stöd hittade
+                  </h3>
+                  <span style={{
+                    fontSize: 11, color: "#475569", fontStyle: "italic",
+                  }}>
+                    Relevans = hur väl bidraget matchar din situation
+                  </span>
+                </div>
 
                 {/* Grant cards */}
                 {result.benefits?.map((benefit, i) => (
@@ -1247,29 +1264,94 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                 </div>
 
                 {/* Refine button */}
-                {hasFeedback && (
-                  <button
-                    onClick={refineResults}
-                    style={{
-                      marginTop: 8, width: "100%",
-                      background: "linear-gradient(135deg, #a78bfa, #38bdf8)",
-                      color: "#0a1628", border: "none", borderRadius: 12,
-                      padding: "16px", fontSize: 15, fontWeight: 700,
-                      cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
-                      transition: "all 0.2s",
-                      boxShadow: "0 0 20px rgba(167, 139, 250, 0.2)",
-                    }}
-                    onMouseOver={(e) => {
-                      e.currentTarget.style.transform = "translateY(-1px)";
-                      e.currentTarget.style.boxShadow = "0 0 30px rgba(167, 139, 250, 0.3)";
-                    }}
-                    onMouseOut={(e) => {
-                      e.currentTarget.style.transform = "translateY(0)";
-                      e.currentTarget.style.boxShadow = "0 0 20px rgba(167, 139, 250, 0.2)";
-                    }}
-                  >
-                    Förfina rekommendationer baserat på din feedback
-                  </button>
+                <button
+                  onClick={() => setShowRefineDialog(true)}
+                  style={{
+                    marginTop: 8, width: "100%",
+                    background: hasFeedback
+                      ? "linear-gradient(135deg, #a78bfa, #38bdf8)"
+                      : "rgba(167, 139, 250, 0.15)",
+                    color: hasFeedback ? "#0a1628" : "#a78bfa",
+                    border: hasFeedback ? "none" : "1px solid rgba(167, 139, 250, 0.3)",
+                    borderRadius: 12,
+                    padding: "16px", fontSize: 15, fontWeight: 700,
+                    cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                    transition: "all 0.2s",
+                    boxShadow: hasFeedback ? "0 0 20px rgba(167, 139, 250, 0.2)" : "none",
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                    if (hasFeedback) e.currentTarget.style.boxShadow = "0 0 30px rgba(167, 139, 250, 0.3)";
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = "translateY(0)";
+                    if (hasFeedback) e.currentTarget.style.boxShadow = "0 0 20px rgba(167, 139, 250, 0.2)";
+                  }}
+                >
+                  Förfina rekommendationer
+                </button>
+
+                {/* Refine dialog */}
+                {showRefineDialog && (
+                  <div style={{
+                    marginTop: 12, padding: "20px", borderRadius: 14,
+                    background: "rgba(167, 139, 250, 0.06)",
+                    border: "1px solid rgba(167, 139, 250, 0.2)",
+                    animation: "fadeSlide 0.3s ease",
+                  }}>
+                    <h4 style={{ fontSize: 15, fontWeight: 600, color: "#a78bfa", margin: "0 0 6px" }}>
+                      Vill du berätta mer?
+                    </h4>
+                    <p style={{ fontSize: 13, color: "#94a3b8", margin: "0 0 14px", lineHeight: 1.5 }}>
+                      Beskriv gärna vad du letar efter, eller ställ en fråga. T.ex. "Finns det nåt för den som har ADHD?",
+                      "Jag vill veta mer om EU-bidrag", eller "Vi planerar att anställa 3 personer snart".
+                      Du kan också lämna tomt och klicka Förfina direkt.
+                    </p>
+                    <textarea
+                      value={refineComment}
+                      onChange={(e) => setRefineComment(e.target.value)}
+                      placeholder="Valfritt: Beskriv vad du vill veta mer om..."
+                      style={{
+                        width: "100%", minHeight: 80, padding: "12px 14px",
+                        borderRadius: 10, border: "1px solid rgba(167, 139, 250, 0.2)",
+                        background: "rgba(255,255,255,0.03)", color: "#e2e8f0",
+                        fontSize: 14, fontFamily: "'DM Sans', sans-serif",
+                        resize: "vertical", lineHeight: 1.5,
+                        outline: "none",
+                      }}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(167, 139, 250, 0.5)"; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(167, 139, 250, 0.2)"; }}
+                      autoFocus
+                    />
+                    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                      <button
+                        onClick={() => {
+                          setShowRefineDialog(false);
+                          setRefineComment("");
+                        }}
+                        style={{
+                          flex: 1, padding: "12px", borderRadius: 10,
+                          background: "rgba(255,255,255,0.04)",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          color: "#94a3b8", fontSize: 14, fontWeight: 500,
+                          cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                        }}
+                      >Avbryt</button>
+                      <button
+                        onClick={() => {
+                          refineResults(refineComment);
+                          setRefineComment("");
+                        }}
+                        style={{
+                          flex: 2, padding: "12px", borderRadius: 10,
+                          background: "linear-gradient(135deg, #a78bfa, #38bdf8)",
+                          color: "#0a1628", border: "none",
+                          fontSize: 14, fontWeight: 700,
+                          cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                        }}
+                      >Förfina nu</button>
+                    </div>
+                  </div>
                 )}
 
                 {/* Recommendations section */}
