@@ -14,6 +14,19 @@ export const QUIZ_CATEGORIES = [
     multi: false,
   },
   {
+    id: "company_age",
+    question: "När startades företaget?",
+    description: "Vissa bidrag har krav på hur nytt eller gammalt företaget är",
+    options: [
+      { label: "Har inte startat än", value: "not_started" },
+      { label: "Mindre än 1 år sedan", value: "less_1y" },
+      { label: "1–3 år sedan", value: "1_3y" },
+      { label: "3–5 år sedan", value: "3_5y" },
+      { label: "Mer än 5 år sedan", value: "over_5y" },
+    ],
+    multi: false,
+  },
+  {
     id: "employees",
     question: "Hur många anställda har företaget?",
     options: [

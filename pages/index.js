@@ -10,7 +10,7 @@ import {
   getSearchHistory,
   deleteSearch,
 } from "../lib/supabase";
-import { resultToText, copyToClipboard, downloadAsFile } from "../lib/export";
+import { resultToText, copyToClipboard, downloadAsFile, downloadAsPDF } from "../lib/export";
 
 const LoadingDots = () => {
   const [dots, setDots] = useState(0);
@@ -149,7 +149,7 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange }) {
 
       {/* How to apply */}
       <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 12px", lineHeight: 1.5 }}>
-        📝 {benefit.how_to_apply}
+        {benefit.how_to_apply}
       </p>
 
       {/* Link */}
@@ -246,6 +246,9 @@ export default function Home() {
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [emailSubmitted, setEmailSubmitted] = useState(false);
+  const [emailError, setEmailError] = useState(null);
   const resultRef = useRef(null);
 
   const categories = QUIZ_CATEGORIES;
@@ -336,6 +339,13 @@ export default function Home() {
       ideell_forening: "ideell förening",
       planning: "planerar att starta företag",
     };
+    const companyAgeMap = {
+      not_started: "har inte startat än (planerar att starta)",
+      less_1y: "mindre än 1 år sedan",
+      "1_3y": "1-3 år sedan",
+      "3_5y": "3-5 år sedan",
+      over_5y: "mer än 5 år sedan",
+    };
     const employeesMap = {
       solo: "0 anställda (soloföretagare)",
       micro: "1-9 anställda (mikroföretag)",
@@ -363,8 +373,10 @@ export default function Home() {
       digitalization: "digitalisering",
       sustainability: "hållbarhet/klimatomställning",
       hiring_skills: "anställa personal/kompetensutveckling",
+      marketing_sales: "marknadsföring/försäljning",
       startup_support: "starta eget-stöd",
       rnd: "forskning & innovation",
+      unsure: "osäker på vad de behöver",
     };
     const revenueMap = {
       zero: "ingen omsättning ännu",
@@ -377,11 +389,18 @@ export default function Home() {
     const industryMap = {
       tech: "Tech/IT/SaaS", ecommerce: "Handel/E-commerce",
       manufacturing: "Tillverkning/Industri", construction: "Bygg/Fastighet",
-      hospitality: "Restaurang/Besöksnäring", health: "Hälsa/Vård/Life Science",
-      transport: "Transport/Logistik", consulting: "Konsult/Tjänsteföretag",
-      creative: "Kreativa branschen/Kultur", agriculture: "Jordbruk/Livsmedel",
-      energy: "Energi/Cleantech", education: "Utbildning",
-      other: "Annan/blandad bransch",
+      cleaning_facility: "Städ/Fastighetsservice", hospitality: "Restaurang/Besöksnäring",
+      health: "Hälsa/Vård/Life Science", beauty_personal: "Skönhet/Frisör/Personlig vård",
+      transport: "Transport/Logistik", automotive: "Fordon/Verkstad",
+      consulting: "Konsult/Tjänsteföretag", creative: "Kreativa branschen/Kultur",
+      agriculture: "Jordbruk/Livsmedel", energy: "Energi/Cleantech",
+      education: "Utbildning", other: "Annan/blandad bransch",
+    };
+    const offeringMap = {
+      physical_products: "fysiska produkter/varor",
+      services: "tjänster",
+      both: "både varor och tjänster",
+      unsure: "osäker",
     };
 
     const needs = Array.isArray(finalAnswers.needs)
@@ -396,6 +415,7 @@ STATLIGA MYNDIGHETER:
 - Energimyndigheten (energieffektivisering, klimatpremien, biogas, fossilfritt)
 - Jordbruksverket (investeringsstöd jordbruk, landsbygdsutveckling, livsmedelsförädling)
 - Arbetsförmedlingen (starta eget-bidrag, nystartsjobb, lönebidrag, yrkesintroduktion)
+- Försäkringskassan (starta eget-bidrag/aktivitetsstöd för den som har funktionsnedsättning, ADHD, autism eller annan diagnos — upp till 12 månader)
 - Länsstyrelserna (regionala företagsstöd, specifika för varje län)
 - Almi (förstudiemedel, innovationslån, mikrolån, mentorskap)
 - Business Sweden (exportstöd, internationaliseringscheck)
@@ -414,20 +434,37 @@ EU-FONDER:
 - Eurostars
 - NOPEF (nordisk exportfinansiering)
 
+SKATTELÄTTNADER OCH AVDRAG:
+- RUT-avdrag (för kunder som köper hushållsnära tjänster — relevant om företaget verkar inom städ, trädgård, barnpassning etc.)
+- ROT-avdrag (för kunder som köper byggtjänster — relevant om företaget är inom bygg/renovering)
+- Skattereduktioner för grön teknik
+
 Baserat på detta företags situation, ge en KOMPLETT lista med relevanta stöd, bidrag och finansieringsmöjligheter.
 
 Bolagsform: ${companyTypeMap[finalAnswers.company_type] || "ej angivet"}
+Företaget startades: ${companyAgeMap[finalAnswers.company_age] || "ej angivet"}
 Antal anställda: ${employeesMap[finalAnswers.employees] || "ej angivet"}
 Län: ${regionMap[finalAnswers.region] || "ej angivet"}
 Behov: ${needs}
 Årsomsättning: ${revenueMap[finalAnswers.revenue] || "ej angivet"}
 Bransch: ${industryMap[finalAnswers.industry] || "ej angivet"}
+Erbjudande: ${offeringMap[finalAnswers.offering_type] || "ej angivet"}
 
 VIKTIGT:
 - Inkludera ÄVEN bidrag som inte är branschspecifika men som företaget kvalificerar för baserat på storlek, region eller behov
 - Exempelvis: ett restaurangföretag KAN kvalificera för hållbarhetsbidrag från Energimyndigheten
 - Inkludera regionala stöd specifika för ${regionMap[finalAnswers.region] || "deras län"}
-- Om företaget planerar att starta, inkludera starta eget-stöd`;
+- Om företaget planerar att starta, inkludera starta eget-stöd
+- Om företaget är inom en RUT/ROT-bransch (städ, bygg, trädgård etc), nämn hur RUT/ROT-avdraget gynnar deras kunder och affärsmodell
+- Tänk även på Försäkringskassans starta-eget-bidrag om personen planerar att starta (kan vara aktuellt om man har funktionsnedsättning)
+- VIKTIGT om företagets ålder: Starta-eget-bidrag (t.ex. från Arbetsförmedlingen) kan BARA sökas INNAN man registrerar företaget. Om företaget redan är startat, rekommendera INTE starta-eget-bidrag — nämn istället att det tyvärr inte längre är aktuellt.
+- Om företaget startades för mer än 3 år sedan, fokusera på tillväxt- och utvecklingsbidrag istället för nystartsstöd.
+
+KRITISKT — ALDRIG lämna användaren utan hopp:
+- Om få bidrag matchar exakt, inkludera ÄNDÅ närliggande stöd som kan bli aktuella med mindre justeringar
+- Ge alltid konkreta rekommendationer: "Om du gör X kan du kvalificera för Y"
+- Nämn om bidragslandskapet brukar ändras och att det kan vara värt att kolla igen om 6 månader
+- Föreslå konkreta steg: registrera företag hos Almi för rådgivning, kontakta regionens näringslivsenhet, etc.`;
   };
 
   const jsonInstructions = `Svara ENBART med giltig JSON (ingen markdown, inga backticks). Formatet ska vara:
@@ -447,11 +484,23 @@ VIKTIGT:
       "category": "Kategori: investering/innovation/export/hållbarhet/personal/regional/eu/starta-eget"
     }
   ],
-  "summary": "En kort sammanfattning av företagets totala möjligheter (2-3 meningar)",
+  "recommendations": [
+    "Konkret rekommendation 1 — t.ex. 'Kontakta Almis regionala kontor i X län för gratis rådgivning'",
+    "Konkret rekommendation 2 — t.ex. 'Om ni börjar exportera kan ni söka internationaliseringscheckar från Business Sweden'",
+    "Konkret rekommendation 3 — t.ex. 'Bidragslandskapet ändras löpande — det kan vara värt att söka igen om 6 månader'"
+  ],
+  "summary": "En kort sammanfattning av företagets totala möjligheter (2-3 meningar). Om få bidrag matchar, var uppmuntrande och förklara vilka möjligheter som kan öppna sig.",
   "total_potential": "Ungefärlig total summa företaget potentiellt kan söka"
 }
 
-Inkludera 6-12 relevanta bidrag/stöd, sorterade efter deadline (närmast deadline först, löpande sist). Var specifik och korrekt. Inkludera regionala stöd. Blanda inte ihop lån och bidrag — märk tydligt.`;
+Inkludera 6-12 relevanta bidrag/stöd, sorterade efter deadline (närmast deadline först, löpande sist). Var specifik och korrekt. Inkludera regionala stöd. Blanda inte ihop lån och bidrag — märk tydligt.
+
+VIKTIGT om recommendations-fältet:
+- Ge ALLTID minst 3 konkreta rekommendationer
+- Inkludera praktiska nästa steg (kontakta Almi, ring regionens näringslivsenhet, etc.)
+- Om få bidrag hittades, ge tips om vad företaget kan göra för att kvalificera sig i framtiden
+- Nämn att bidragslandskapet ändras och att det kan vara värt att kolla igen
+- Om relevant, nämn skattelättnader som RUT/ROT som inte är bidrag men gynnar företaget`;
 
   const callAPI = async (prompt) => {
     const response = await fetch("/api/analyze", {
@@ -610,6 +659,30 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
     downloadAsFile(text);
   };
 
+  const handlePDF = () => {
+    downloadAsPDF(result, answers);
+  };
+
+  const handleEmailSignup = async () => {
+    if (!emailInput || !emailInput.includes("@")) {
+      setEmailError("Ange en giltig e-postadress");
+      return;
+    }
+    setEmailError(null);
+    try {
+      const { saveEmailSignup } = await import("../lib/supabase");
+      await saveEmailSignup({
+        sessionId,
+        email: emailInput,
+        answers,
+      });
+      setEmailSubmitted(true);
+    } catch (err) {
+      console.error("Email signup error:", err);
+      setEmailError("Något gick fel. Försök igen.");
+    }
+  };
+
   const progress = step >= 0 ? (step / categories.length) * 100 : 0;
   const current = categories[step];
 
@@ -710,7 +783,7 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 36, boxShadow: "0 0 40px rgba(56, 189, 248, 0.25)",
                 }}>
-                  <span role="img" aria-label="Swedish flag">🇸🇪</span>
+                  <span style={{ fontSize: 22, fontWeight: 700, color: "#0a1628", fontFamily: "'Space Mono', monospace" }}>B</span>
                 </div>
                 <h2 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 12px", lineHeight: 1.2 }}>
                   Vilka bidrag kan<br />ditt företag få?
@@ -719,7 +792,7 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                   fontSize: 15, color: "#94a3b8", lineHeight: 1.6,
                   maxWidth: 440, margin: "0 auto 12px",
                 }}>
-                  Svara på 6 snabba frågor så söker vår AI igenom hundratals
+                  Svara på några snabba frågor så söker vår AI igenom hundratals
                   bidrag från Tillväxtverket, Vinnova, Almi, Energimyndigheten,
                   EU-fonder och fler.
                 </p>
@@ -753,9 +826,9 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                   marginTop: 32, display: "flex", justifyContent: "center", gap: 20,
                   fontSize: 12, color: "#475569", flexWrap: "wrap",
                 }}>
-                  <span>🔒 Säker i molnet</span>
-                  <span>⚡ Tar 1 minut</span>
-                  <span>🤖 AI-driven</span>
+                  <span>Säker i molnet</span>
+                  <span>Tar 1 minut</span>
+                  <span>AI-driven</span>
                 </div>
 
                 {/* History section */}
@@ -779,7 +852,7 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                       e.currentTarget.style.color = "#64748b";
                     }}
                   >
-                    📋 Visa tidigare sökningar ({history.length})
+                    Visa tidigare sökningar ({history.length})
                   </button>
                 )}
 
@@ -956,7 +1029,7 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                   display: "flex", alignItems: "center", justifyContent: "center",
                   animation: "pulse 2s infinite",
                 }}>
-                  <span style={{ fontSize: 28 }}>{refining ? "🔄" : "📊"}</span>
+                  <span style={{ fontSize: 22, fontWeight: 700, color: "#38bdf8", fontFamily: "'Space Mono', monospace" }}>{refining ? "..." : "?"}</span>
                 </div>
                 <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>
                   {refining ? "Förfinar dina rekommendationer" : "Söker igenom alla bidragskällor"}<LoadingDots />
@@ -995,7 +1068,7 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                     color: "#a78bfa",
                     border: "1px solid rgba(167, 139, 250, 0.25)",
                   }}>
-                    🎯 Förfinad {refineCount} {refineCount === 1 ? "gång" : "gånger"}
+                    Förfinad {refineCount} {refineCount === 1 ? "gång" : "gånger"}
                   </div>
                 )}
 
@@ -1029,7 +1102,7 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                   border: "1px solid rgba(56, 189, 248, 0.1)",
                   fontSize: 13, color: "#64748b", lineHeight: 1.5,
                 }}>
-                  💡 Markera vilka bidrag som passar och vilka som inte gör det.
+                  Markera vilka bidrag som passar och vilka som inte gör det.
                   Klicka sedan <strong style={{ color: "#a78bfa" }}>Förfina</strong> för bättre rekommendationer.
                 </div>
 
@@ -1067,7 +1140,7 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                       fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
                     }}
                   >
-                    {copySuccess ? "✓ Kopierad!" : "📋 Kopiera rapport"}
+                    {copySuccess ? "Kopierad!" : "Kopiera rapport"}
                   </button>
                   <button
                     onClick={handleDownload}
@@ -1080,7 +1153,20 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                       fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
                     }}
                   >
-                    📥 Ladda ner .txt
+                    Ladda ner .txt
+                  </button>
+                  <button
+                    onClick={handlePDF}
+                    style={{
+                      flex: 1, padding: "12px", borderRadius: 10,
+                      background: "rgba(255,255,255,0.03)",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      color: "#64748b",
+                      fontSize: 13, fontWeight: 500, cursor: "pointer",
+                      fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
+                    }}
+                  >
+                    Ladda ner PDF
                   </button>
                 </div>
 
@@ -1106,9 +1192,117 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                       e.currentTarget.style.boxShadow = "0 0 20px rgba(167, 139, 250, 0.2)";
                     }}
                   >
-                    🎯 Förfina rekommendationer baserat på din feedback
+                    Förfina rekommendationer baserat på din feedback
                   </button>
                 )}
+
+                {/* Recommendations section */}
+                {result.recommendations && result.recommendations.length > 0 && (
+                  <div style={{
+                    marginTop: 24, padding: "20px", borderRadius: 14,
+                    background: "rgba(251, 191, 36, 0.04)",
+                    border: "1px solid rgba(251, 191, 36, 0.15)",
+                  }}>
+                    <h4 style={{
+                      fontSize: 14, fontWeight: 600, color: "#fbbf24",
+                      textTransform: "uppercase", letterSpacing: "1px",
+                      margin: "0 0 14px", fontFamily: "'Space Mono', monospace",
+                    }}>
+                      Rekommendationer och nästa steg
+                    </h4>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {result.recommendations.map((rec, i) => (
+                        <div key={i} style={{
+                          display: "flex", gap: 10, alignItems: "flex-start",
+                          fontSize: 13, color: "#94a3b8", lineHeight: 1.6,
+                        }}>
+                          <span style={{
+                            minWidth: 22, height: 22, borderRadius: 6,
+                            background: "rgba(251, 191, 36, 0.1)",
+                            border: "1px solid rgba(251, 191, 36, 0.2)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 11, fontWeight: 700, color: "#fbbf24",
+                            fontFamily: "'Space Mono', monospace", flexShrink: 0,
+                            marginTop: 1,
+                          }}>{i + 1}</span>
+                          <span>{rec}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Email signup section */}
+                <div style={{
+                  marginTop: 24, padding: "24px", borderRadius: 14,
+                  background: "linear-gradient(135deg, rgba(56, 189, 248, 0.06), rgba(16, 185, 129, 0.04))",
+                  border: "1px solid rgba(56, 189, 248, 0.15)",
+                }}>
+                  <h4 style={{
+                    fontSize: 15, fontWeight: 600, color: "#e2e8f0",
+                    margin: "0 0 6px",
+                  }}>
+                    Vill du bli notifierad?
+                  </h4>
+                  <p style={{
+                    fontSize: 13, color: "#64748b", margin: "0 0 16px", lineHeight: 1.5,
+                  }}>
+                    Bidragslandskapet förändras ständigt. Ange din e-post så påminner vi dig om 6 månader
+                    att göra quizet igen, eller meddelar dig om nya bidrag som matchar din profil.
+                  </p>
+                  {emailSubmitted ? (
+                    <div style={{
+                      padding: "12px 16px", borderRadius: 10,
+                      background: "rgba(16, 185, 129, 0.1)",
+                      border: "1px solid rgba(16, 185, 129, 0.25)",
+                      fontSize: 14, color: "#10b981", fontWeight: 500,
+                    }}>
+                      Tack! Vi hör av oss när det finns nyheter.
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <input
+                          type="email"
+                          value={emailInput}
+                          onChange={(e) => setEmailInput(e.target.value)}
+                          placeholder="din@email.se"
+                          style={{
+                            flex: 1, padding: "12px 14px", borderRadius: 10,
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            background: "rgba(255,255,255,0.03)", color: "#e2e8f0",
+                            fontSize: 14, fontFamily: "'DM Sans', sans-serif",
+                            outline: "none",
+                          }}
+                          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(56, 189, 248, 0.4)"; }}
+                          onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; }}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleEmailSignup(); }}
+                        />
+                        <button
+                          onClick={handleEmailSignup}
+                          style={{
+                            padding: "12px 20px", borderRadius: 10,
+                            background: "linear-gradient(135deg, #38bdf8, #10b981)",
+                            color: "#0a1628", border: "none",
+                            fontSize: 14, fontWeight: 600, cursor: "pointer",
+                            fontFamily: "'DM Sans', sans-serif",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          Påminn mig
+                        </button>
+                      </div>
+                      {emailError && (
+                        <p style={{ fontSize: 12, color: "#f87171", margin: "8px 0 0" }}>{emailError}</p>
+                      )}
+                      <p style={{
+                        fontSize: 11, color: "#475569", margin: "10px 0 0", lineHeight: 1.4,
+                      }}>
+                        Vi skickar max 2-3 mail per år. Ingen spam. Du kan avregistrera dig när som helst.
+                      </p>
+                    </div>
+                  )}
+                </div>
 
                 <div style={{
                   marginTop: 24, padding: "16px", borderRadius: 12,
@@ -1116,7 +1310,7 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                   border: "1px solid rgba(255,255,255,0.06)",
                   fontSize: 12, color: "#475569", lineHeight: 1.5, textAlign: "center",
                 }}>
-                  ⚠️ Informationen är vägledande och baseras på AI-analys.
+                  Informationen är vägledande och baseras på AI-analys.
                   Kontakta respektive myndighet för exakta villkor och aktuella belopp.
                   Bidragslandskapet förändras — kontrollera alltid att utlysningen är öppen.
                 </div>
@@ -1134,7 +1328,7 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                   }}
                   onMouseOver={(e) => { e.currentTarget.style.background = "rgba(56, 189, 248, 0.18)"; }}
                   onMouseOut={(e) => { e.currentTarget.style.background = "rgba(56, 189, 248, 0.1)"; }}
-                >🔄 Börja om från början</button>
+                >Börja om från början</button>
               </div>
             )}
           </div>
@@ -1152,7 +1346,7 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                   color: infoPanel === "gdpr" ? "#38bdf8" : "#64748b",
                   fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
                 }}
-              >🔒 Integritet</button>
+              >Integritet</button>
               <button
                 onClick={() => setInfoPanel(infoPanel === "how" ? null : "how")}
                 style={{
@@ -1163,7 +1357,7 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                   color: infoPanel === "how" ? "#38bdf8" : "#64748b",
                   fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
                 }}
-              >⚙️ Hur fungerar det?</button>
+              >Hur fungerar det?</button>
             </div>
 
             {infoPanel === "gdpr" && (
@@ -1174,7 +1368,7 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                 animation: "fadeSlide 0.3s ease",
               }}>
                 <h4 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 16px", color: "#38bdf8" }}>
-                  🔒 Integritet & GDPR
+                  Integritet & GDPR
                 </h4>
                 <div style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.7 }}>
                   <p style={{ margin: "0 0 12px" }}>
@@ -1210,7 +1404,7 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                 animation: "fadeSlide 0.3s ease",
               }}>
                 <h4 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 16px", color: "#38bdf8" }}>
-                  ⚙️ Hur fungerar Bidragsguiden?
+                  Hur fungerar Bidragsguiden?
                 </h4>
                 <div style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.7 }}>
                   <div style={{ display: "flex", gap: 14, marginBottom: 16 }}>
@@ -1222,7 +1416,7 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                       fontFamily: "'Space Mono', monospace",
                     }}>1</div>
                     <div>
-                      <div style={{ fontWeight: 600, color: "#cbd5e1", marginBottom: 2 }}>Du svarar på 6 frågor</div>
+                      <div style={{ fontWeight: 600, color: "#cbd5e1", marginBottom: 2 }}>Du svarar på några frågor</div>
                       Bolagsform, storlek, region, behov, omsättning och bransch.
                     </div>
                   </div>
@@ -1256,7 +1450,7 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                     padding: "14px 16px", background: "rgba(251, 191, 36, 0.06)",
                     borderRadius: 8, border: "1px solid rgba(251, 191, 36, 0.15)",
                   }}>
-                    <div style={{ fontWeight: 600, color: "#fbbf24", marginBottom: 4 }}>⚠️ Viktigt</div>
+                    <div style={{ fontWeight: 600, color: "#fbbf24", marginBottom: 4 }}>Viktigt</div>
                     Bidragsguiden ger vägledning baserad på AI och ersätter inte professionell rådgivning.
                     Kontrollera alltid villkor direkt hos respektive myndighet.
                   </div>
