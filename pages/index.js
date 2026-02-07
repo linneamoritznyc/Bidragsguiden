@@ -26,7 +26,7 @@ const LoadingDots = () => {
 };
 
 // Single grant card with eligibility toggle and feedback
-function GrantCard({ benefit, index, feedback, onFeedbackChange }) {
+function GrantCard({ benefit, index, feedback, onFeedbackChange, saved }) {
   const [expanded, setExpanded] = useState(false);
   const [reasonInput, setReasonInput] = useState(feedback?.reason || "");
 
@@ -51,13 +51,26 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange }) {
 
   return (
     <div style={{
-      background: "rgba(255,255,255,0.02)",
-      border: `1px solid rgba(255,255,255,0.08)`,
+      background: saved ? "rgba(255,255,255,0.01)" : "rgba(255,255,255,0.02)",
+      border: `1px solid ${saved ? "rgba(16, 185, 129, 0.15)" : "rgba(255,255,255,0.08)"}`,
       borderRadius: 14, padding: "20px",
-      marginBottom: 12, borderLeft: `3px solid ${cardBorder}`,
-      opacity: cardOpacity,
+      marginBottom: 12, borderLeft: `3px solid ${saved ? "rgba(16, 185, 129, 0.4)" : cardBorder}`,
+      opacity: saved ? 0.75 : cardOpacity,
       transition: "all 0.3s ease",
     }}>
+      {/* Saved label */}
+      {saved && (
+        <div style={{
+          display: "inline-block", marginBottom: 10,
+          padding: "3px 10px", borderRadius: 8,
+          background: "rgba(16, 185, 129, 0.1)",
+          border: "1px solid rgba(16, 185, 129, 0.2)",
+          fontSize: 10, fontWeight: 600, color: "#10b981",
+          textTransform: "uppercase", letterSpacing: "0.5px",
+        }}>
+          Sparad från förra sökningen
+        </div>
+      )}
       {/* Header row */}
       <div style={{
         display: "flex", justifyContent: "space-between",
@@ -309,6 +322,7 @@ export default function Home() {
   const [emailError, setEmailError] = useState(null);
   const [showRefineDialog, setShowRefineDialog] = useState(false);
   const [refineComment, setRefineComment] = useState("");
+  const [savedGrants, setSavedGrants] = useState([]); // grants user marked "yes" across refines
   const resultRef = useRef(null);
 
   const categories = QUIZ_CATEGORIES;
@@ -685,9 +699,19 @@ ANVÄNDARENS FEEDBACK PÅ TIDIGARE REKOMMENDATIONER:
       feedbackPrompt += `\n\nANVÄNDARENS EGNA KOMMENTAR/FRÅGA:\n${extraComment.trim()}`;
     }
 
+    // Tell AI which grants are already saved so it doesn't repeat them
+    const allSavedNames = [
+      ...savedGrants.map((g) => g.name),
+      ...newSaved.map((g) => g.name),
+    ];
+
     feedbackPrompt += `
 
 Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag som inte passar baserat på användarens anledningar. Ersätt dem med bättre matchningar. Prioritera typer av bidrag som användaren markerat som aktuella. För bidrag markerade som "osäkra" — behåll dem men ge MYCKET mer detalj om exakta krav och villkor så användaren kan avgöra om de kvalificerar.
+
+VIKTIGT — UNDVIK DUBBLETTER:
+Användaren har redan sparat dessa bidrag: ${allSavedNames.length > 0 ? allSavedNames.map((n) => `"${n}"`).join(", ") : "inga"}.
+Inkludera INTE dessa igen i din lista — ge istället NYA bidrag och stöd som inte redan finns i listan.
 
 KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
 - Om användaren har skrivit en kommentar eller fråga om ett specifikt bidrag (t.ex. "kan jag anställa invandrare?"), MÅSTE du besvara den frågan i "user_answer"-fältet för just det bidraget.
@@ -696,6 +720,19 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
 - Varje bidrag som hade en fråga/kommentar från användaren MÅSTE ha ett user_answer med svar.`;
 
     try {
+      // Save grants the user marked as "yes" before refining
+      const newSaved = Object.entries(feedback)
+        .filter(([, fb]) => fb.eligible === "yes")
+        .map(([idx]) => result.benefits[parseInt(idx)])
+        .filter(Boolean);
+      if (newSaved.length > 0) {
+        setSavedGrants((prev) => {
+          const existingNames = new Set(prev.map((g) => g.name));
+          const unique = newSaved.filter((g) => !existingNames.has(g.name));
+          return [...prev, ...unique];
+        });
+      }
+
       const parsed = await callAPI(`${feedbackPrompt}\n\n${jsonInstructions}`);
       setResult(parsed);
       setFeedback({});
@@ -725,6 +762,7 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
       setRefineCount(0);
       setSearchId(null);
       setShowHistory(false);
+      setSavedGrants([]);
     });
   };
 
@@ -745,8 +783,13 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
     refreshHistory();
   };
 
+  // Merge saved grants into result for exports
+  const exportResult = savedGrants.length > 0
+    ? { ...result, benefits: [...savedGrants, ...(result?.benefits || [])] }
+    : result;
+
   const handleCopy = async () => {
-    const text = resultToText(result, answers);
+    const text = resultToText(exportResult, answers);
     const ok = await copyToClipboard(text);
     if (ok) {
       setCopySuccess(true);
@@ -755,12 +798,12 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
   };
 
   const handleDownload = () => {
-    const text = resultToText(result, answers);
+    const text = resultToText(exportResult, answers);
     downloadAsFile(text);
   };
 
   const handlePDF = () => {
-    downloadAsPDF(result, answers);
+    downloadAsPDF(exportResult, answers);
   };
 
   const handleEmailSignup = async () => {
@@ -1223,7 +1266,7 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                     textTransform: "uppercase", letterSpacing: "1px",
                     margin: 0, fontFamily: "'Space Mono', monospace",
                   }}>
-                    {result.benefits?.length || 0} bidrag och stöd hittade
+                    {(result.benefits?.length || 0) + savedGrants.length} bidrag och stöd{savedGrants.length > 0 ? ` (${savedGrants.length} sparade)` : ""}
                   </h3>
                   <span style={{
                     fontSize: 11, color: "#475569", fontStyle: "italic",
@@ -1232,7 +1275,54 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                   </span>
                 </div>
 
-                {/* Grant cards */}
+                {/* Saved grants from previous rounds */}
+                {savedGrants.length > 0 && (
+                  <div style={{ marginBottom: 24 }}>
+                    <div style={{
+                      display: "flex", justifyContent: "space-between",
+                      alignItems: "baseline", marginBottom: 12,
+                    }}>
+                      <h3 style={{
+                        fontSize: 13, fontWeight: 600, color: "#10b981",
+                        textTransform: "uppercase", letterSpacing: "1px",
+                        margin: 0, fontFamily: "'Space Mono', monospace",
+                      }}>
+                        Dina sparade bidrag ({savedGrants.length})
+                      </h3>
+                      <span style={{ fontSize: 11, color: "#475569", fontStyle: "italic" }}>
+                        Dessa har du redan markerat som aktuella
+                      </span>
+                    </div>
+                    {savedGrants.map((benefit, i) => (
+                      <div key={`saved-${i}`} style={{ position: "relative" }}>
+                        <GrantCard
+                          benefit={benefit}
+                          index={`saved-${i}`}
+                          feedback={undefined}
+                          onFeedbackChange={() => {}}
+                          saved
+                        />
+                        <button
+                          onClick={() => setSavedGrants((prev) => prev.filter((_, j) => j !== i))}
+                          style={{
+                            position: "absolute", top: 12, right: 12,
+                            background: "rgba(255,255,255,0.05)",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            borderRadius: 6, padding: "3px 8px",
+                            fontSize: 10, color: "#64748b", cursor: "pointer",
+                            fontFamily: "'DM Sans', sans-serif",
+                          }}
+                        >Ta bort</button>
+                      </div>
+                    ))}
+                    <div style={{
+                      height: 1, background: "rgba(255,255,255,0.06)",
+                      margin: "8px 0 20px",
+                    }} />
+                  </div>
+                )}
+
+                {/* New grant cards from AI */}
                 {result.benefits?.map((benefit, i) => (
                   <GrantCard
                     key={`${refineCount}-${i}`}
