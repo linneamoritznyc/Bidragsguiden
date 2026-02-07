@@ -910,7 +910,6 @@ Baserat på feedbacken, ge en UPPDATERAD och FÖRBÄTTRAD lista. Ta bort bidrag 
                           }
                         }}
                       >
-                        {opt.icon && <span style={{ fontSize: 18 }}>{opt.icon}</span>}
                         {opt.label}
                       </button>
                     );
