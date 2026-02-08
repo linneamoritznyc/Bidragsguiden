@@ -280,7 +280,7 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange, saved }) {
               }}
               placeholder={
                 eligibility === "yes"
-                  ? "Valfritt: Ställ en fråga, t.ex. 'Kan man anställa invandrare med detta stöd?' eller 'Gäller det enskild firma?'"
+                  ? "Valfritt: Ställ en fråga, t.ex. 'Gäller detta enskild firma?' eller 'Vilka dokument behövs egentligen?'"
                   : eligibility === "unsure"
                     ? "Valfritt: Vad undrar du? T.ex. 'Vet inte om vi uppfyller storlekskravet' eller 'Gäller det min bransch?'"
                     : "Valfritt: Varför passar det inte? T.ex. 'Vi har för få anställda' eller 'Vi är inte i rätt län'"
@@ -507,7 +507,7 @@ STATLIGA MYNDIGHETER:
 - Energimyndigheten (energieffektivisering, klimatpremien, biogas, fossilfritt)
 - Jordbruksverket (investeringsstöd jordbruk, landsbygdsutveckling, livsmedelsförädling)
 - Arbetsförmedlingen (starta eget-bidrag, nystartsjobb, lönebidrag, yrkesintroduktion)
-- Försäkringskassan (starta eget-bidrag/aktivitetsstöd för den som har funktionsnedsättning, ADHD, autism eller annan diagnos — upp till 12 månader)
+- Försäkringskassan (aktivitetsstöd och starta eget-bidrag för den som uppfyller särskilda villkor — upp till 12 månader)
 - Länsstyrelserna (regionala företagsstöd, specifika för varje län)
 - Almi (förstudiemedel, innovationslån, mikrolån, mentorskap)
 - Business Sweden (exportstöd, internationaliseringscheck)
@@ -548,7 +548,7 @@ VIKTIGT:
 - Inkludera regionala stöd specifika för ${regionMap[finalAnswers.region] || "deras län"}
 - Om företaget planerar att starta, inkludera starta eget-stöd
 - Om företaget är inom en RUT/ROT-bransch (städ, bygg, trädgård etc), nämn hur RUT/ROT-avdraget gynnar deras kunder och affärsmodell
-- Tänk även på Försäkringskassans starta-eget-bidrag om personen planerar att starta (kan vara aktuellt om man har funktionsnedsättning)
+- Tänk även på Försäkringskassans starta-eget-bidrag om personen planerar att starta (kan vara aktuellt för den som uppfyller Försäkringskassans villkor)
 - VIKTIGT om företagets ålder: Starta-eget-bidrag (t.ex. från Arbetsförmedlingen) kan BARA sökas INNAN man registrerar företaget. Om företaget redan är startat, rekommendera INTE starta-eget-bidrag — nämn istället att det tyvärr inte längre är aktuellt.
 - Om företaget startades för mer än 3 år sedan, fokusera på tillväxt- och utvecklingsbidrag istället för nystartsstöd.
 
@@ -715,7 +715,7 @@ Användaren har redan sparat dessa bidrag: ${allSavedNames.length > 0 ? allSaved
 Inkludera INTE dessa igen i din lista — ge istället NYA bidrag och stöd som inte redan finns i listan.
 
 KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
-- Om användaren har skrivit en kommentar eller fråga om ett specifikt bidrag (t.ex. "kan jag anställa invandrare?"), MÅSTE du besvara den frågan i "user_answer"-fältet för just det bidraget.
+- Om användaren har skrivit en kommentar eller fråga om ett specifikt bidrag (t.ex. "gäller detta enskild firma?"), MÅSTE du besvara den frågan i "user_answer"-fältet för just det bidraget.
 - Svara direkt, tydligt och konkret. Användaren vill INTE behöva klicka på en länk och leta själv.
 - Om användaren ställt en allmän fråga i sin kommentar, besvara den också i "summary"-fältet.
 - Varje bidrag som hade en fråga/kommentar från användaren MÅSTE ha ett user_answer med svar.`;
@@ -1285,7 +1285,7 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                   border: "1px solid rgba(56, 189, 248, 0.1)",
                   fontSize: 13, color: "#64748b", lineHeight: 1.5,
                 }}>
-                  Markera vilka bidrag som passar dig. Skriv gärna frågor i kommentarsfältet — t.ex. "Kan jag anställa invandrare med detta?"
+                  Markera vilka bidrag som passar dig. Skriv gärna frågor i kommentarsfältet — t.ex. "Gäller detta min bolagsform?"
                   Klicka sedan <strong style={{ color: "#a78bfa" }}>Förfina</strong> så får du svar och bättre rekommendationer.
                 </div>
 
@@ -1450,8 +1450,8 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                       Vill du berätta mer?
                     </h4>
                     <p style={{ fontSize: 13, color: "#94a3b8", margin: "0 0 14px", lineHeight: 1.5 }}>
-                      Beskriv gärna vad du letar efter, eller ställ en fråga. T.ex. "Finns det nåt för den som har ADHD?",
-                      "Jag vill veta mer om EU-bidrag", eller "Vi planerar att anställa 3 personer snart".
+                      Beskriv gärna vad du letar efter, eller ställ en fråga. T.ex. "Jag vill veta mer om EU-bidrag",
+                      "Vi planerar att anställa 3 personer snart", eller "Finns det stöd för export?".
                       Du kan också lämna tomt och klicka Förfina direkt.
                     </p>
                     <textarea
@@ -1759,7 +1759,7 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                       <div style={{ fontWeight: 600, color: "#cbd5e1", marginBottom: 2 }}>Du ger feedback och ställer frågor</div>
                       Markera varje bidrag som "Kan vara aktuellt", "Vet ej" eller "Inte aktuellt".
                       Klicka sedan Förfina — där kan du även skriva egna frågor, t.ex.
-                      "Finns det något för den som har en diagnos?" eller "Berätta mer om EU-bidrag".
+                      "Finns det stöd för export?" eller "Berätta mer om EU-bidrag".
                       AI:n anpassar resultaten baserat på allt du skrivit.
                     </div>
                   </div>
