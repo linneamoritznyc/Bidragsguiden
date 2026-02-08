@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { useAuth } from "../lib/auth";
+import { resultToText, downloadAsFile, downloadAsPDF } from "../lib/export";
 import {
   getSavedGrants,
   updateGrantStatus,
@@ -18,13 +19,13 @@ import {
 } from "../lib/dashboard";
 
 const STATUS_CONFIG = {
-  new: { label: "Ny", color: "#38bdf8", bg: "rgba(56, 189, 248, 0.12)" },
-  investigating: { label: "Undersöker", color: "#fbbf24", bg: "rgba(251, 191, 36, 0.12)" },
-  applying: { label: "Förbereder ansökan", color: "#a78bfa", bg: "rgba(167, 139, 250, 0.12)" },
-  applied: { label: "Ansökt", color: "#60a5fa", bg: "rgba(96, 165, 250, 0.12)" },
-  granted: { label: "Beviljad", color: "#10b981", bg: "rgba(16, 185, 129, 0.12)" },
-  rejected: { label: "Nekad", color: "#ef4444", bg: "rgba(239, 68, 68, 0.12)" },
-  archived: { label: "Arkiverad", color: "#64748b", bg: "rgba(100, 116, 139, 0.12)" },
+  new: { label: "Ny", color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe" },
+  investigating: { label: "Undersöker", color: "#d97706", bg: "#fffbeb", border: "#fde68a" },
+  applying: { label: "Förbereder ansökan", color: "#7c3aed", bg: "#f5f3ff", border: "#ddd6fe" },
+  applied: { label: "Ansökt", color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe" },
+  granted: { label: "Beviljad", color: "#059669", bg: "#ecfdf5", border: "#a7f3d0" },
+  rejected: { label: "Nekad", color: "#dc2626", bg: "#fef2f2", border: "#fecaca" },
+  archived: { label: "Arkiverad", color: "#6b7280", bg: "#f9fafb", border: "#e5e7eb" },
 };
 
 function GrantCard({ grant, onUpdate, onDelete, userId }) {
@@ -81,11 +82,13 @@ function GrantCard({ grant, onUpdate, onDelete, userId }) {
 
   return (
     <div style={{
-      background: "rgba(255,255,255,0.02)",
-      border: `1px solid rgba(255,255,255,0.08)`,
-      borderRadius: 14, padding: "20px",
+      background: "#fff",
+      border: `1px solid ${st.border}`,
+      borderRadius: 12, padding: "20px",
       marginBottom: 12,
       borderLeft: `3px solid ${st.color}`,
+      boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+      transition: "box-shadow 0.2s",
     }}>
       {/* Header */}
       <div
@@ -97,35 +100,34 @@ function GrantCard({ grant, onUpdate, onDelete, userId }) {
           alignItems: "flex-start", gap: 8, flexWrap: "wrap",
         }}>
           <div style={{ flex: 1 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>
+            <h3 style={{ fontSize: 16, fontWeight: 600, margin: "0 0 4px", color: "#111827" }}>
               {grant.grant_name}
             </h3>
-            <p style={{ fontSize: 12, color: "#38bdf8", margin: 0, fontWeight: 500 }}>
+            <p style={{ fontSize: 13, color: "#2563eb", margin: 0, fontWeight: 500 }}>
               {grant.grant_agency}
             </p>
           </div>
           <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
             <span style={{
-              fontSize: 10, fontWeight: 600, color: st.color,
+              fontSize: 11, fontWeight: 600, color: st.color,
               background: st.bg, padding: "3px 10px", borderRadius: 12,
+              border: `1px solid ${st.border}`,
             }}>{st.label}</span>
             {doneCount > 0 && (
-              <span style={{
-                fontSize: 10, color: "#64748b",
-              }}>{doneCount}/{checklist.length}</span>
+              <span style={{ fontSize: 11, color: "#6b7280" }}>{doneCount}/{checklist.length}</span>
             )}
-            <span style={{ fontSize: 14, color: "#475569" }}>{expanded ? "▲" : "▼"}</span>
+            <span style={{ fontSize: 12, color: "#9ca3af" }}>{expanded ? "▲" : "▼"}</span>
           </div>
         </div>
 
         {/* Quick info row */}
         <div style={{
-          display: "flex", gap: 16, marginTop: 8, fontSize: 12, color: "#64748b",
+          display: "flex", gap: 16, marginTop: 8, fontSize: 13, color: "#6b7280",
           flexWrap: "wrap",
         }}>
           {grantData.amount && <span>Belopp: {grantData.amount}</span>}
           {deadline && (
-            <span style={{ color: new Date(deadline) < new Date() ? "#ef4444" : "#fbbf24" }}>
+            <span style={{ color: new Date(deadline) < new Date() ? "#dc2626" : "#d97706" }}>
               Deadline: {new Date(deadline).toLocaleDateString("sv-SE")}
             </span>
           )}
@@ -135,10 +137,10 @@ function GrantCard({ grant, onUpdate, onDelete, userId }) {
 
       {/* Expanded content */}
       {expanded && (
-        <div style={{ marginTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 16 }}>
+        <div style={{ marginTop: 16, borderTop: "1px solid #f3f4f6", paddingTop: 16 }}>
           {/* Description */}
           {grantData.description && (
-            <p style={{ fontSize: 13, color: "#94a3b8", margin: "0 0 12px", lineHeight: 1.5 }}>
+            <p style={{ fontSize: 14, color: "#4b5563", margin: "0 0 14px", lineHeight: 1.6 }}>
               {grantData.description}
             </p>
           )}
@@ -146,14 +148,13 @@ function GrantCard({ grant, onUpdate, onDelete, userId }) {
           {/* Eligibility */}
           {grantData.eligibility_summary && (
             <div style={{
-              padding: "10px 14px", borderRadius: 8, marginBottom: 12,
-              background: "rgba(56, 189, 248, 0.04)",
-              border: "1px solid rgba(56, 189, 248, 0.1)",
+              padding: "12px 14px", borderRadius: 8, marginBottom: 14,
+              background: "#f0f9ff", border: "1px solid #bae6fd",
             }}>
-              <div style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>
+              <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4, fontWeight: 600 }}>
                 Vem kan söka
               </div>
-              <div style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.5 }}>
+              <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.6 }}>
                 {grantData.eligibility_summary}
               </div>
             </div>
@@ -162,25 +163,26 @@ function GrantCard({ grant, onUpdate, onDelete, userId }) {
           {/* Link */}
           {grantData.url && (
             <a href={grantData.url} target="_blank" rel="noopener noreferrer" style={{
-              display: "inline-block", fontSize: 13, color: "#38bdf8",
+              display: "inline-block", fontSize: 13, color: "#2563eb",
               textDecoration: "none", fontWeight: 500, marginBottom: 16,
-            }}>Läs mer på {grant.grant_agency} →</a>
+            }}>Läs mer hos {grant.grant_agency} →</a>
           )}
 
           {/* Status selector */}
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, color: "#475569", marginBottom: 6 }}>Status</div>
+            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6, fontWeight: 600 }}>Status</div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
                 <button
                   key={key}
                   onClick={() => handleStatusChange(key)}
                   style={{
-                    padding: "5px 12px", borderRadius: 8, border: "none",
-                    fontSize: 11, fontWeight: 600, cursor: "pointer",
+                    padding: "5px 12px", borderRadius: 8,
+                    fontSize: 12, fontWeight: 600, cursor: "pointer",
                     fontFamily: "'DM Sans', sans-serif",
-                    background: grant.status === key ? cfg.bg : "rgba(255,255,255,0.04)",
-                    color: grant.status === key ? cfg.color : "#64748b",
+                    background: grant.status === key ? cfg.bg : "#f9fafb",
+                    border: `1px solid ${grant.status === key ? cfg.border : "#e5e7eb"}`,
+                    color: grant.status === key ? cfg.color : "#9ca3af",
                     transition: "all 0.2s",
                   }}
                 >{cfg.label}</button>
@@ -190,15 +192,15 @@ function GrantCard({ grant, onUpdate, onDelete, userId }) {
 
           {/* Deadline */}
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, color: "#475569", marginBottom: 6 }}>Deadline</div>
+            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6, fontWeight: 600 }}>Deadline</div>
             <input
               type="date"
               value={deadline}
               onChange={(e) => handleDeadlineChange(e.target.value)}
               style={{
                 padding: "8px 12px", borderRadius: 8,
-                border: "1px solid rgba(255,255,255,0.1)",
-                background: "rgba(255,255,255,0.03)", color: "#e2e8f0",
+                border: "1px solid #d1d5db",
+                background: "#fff", color: "#111827",
                 fontSize: 13, fontFamily: "'DM Sans', sans-serif",
               }}
             />
@@ -206,31 +208,33 @@ function GrantCard({ grant, onUpdate, onDelete, userId }) {
 
           {/* Checklist */}
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, color: "#475569", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8, fontWeight: 600 }}>
               Checklista ({doneCount}/{checklist.length})
             </div>
             {checklist.sort((a, b) => a.sort_order - b.sort_order).map((item) => (
               <div key={item.id} style={{
                 display: "flex", alignItems: "flex-start", gap: 8,
-                padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.03)",
+                padding: "8px 0", borderBottom: "1px solid #f3f4f6",
               }}>
                 <input
                   type="checkbox"
                   checked={item.done}
                   onChange={() => handleToggle(item)}
-                  style={{ marginTop: 3, cursor: "pointer", accentColor: "#10b981" }}
+                  style={{ marginTop: 3, cursor: "pointer", accentColor: "#059669" }}
                 />
                 <span style={{
-                  flex: 1, fontSize: 13, color: item.done ? "#475569" : "#cbd5e1",
+                  flex: 1, fontSize: 14, color: item.done ? "#9ca3af" : "#374151",
                   textDecoration: item.done ? "line-through" : "none",
                   lineHeight: 1.4,
                 }}>{item.label}</span>
                 <button
                   onClick={() => handleDeleteItem(item.id)}
                   style={{
-                    background: "none", border: "none", color: "#475569",
-                    fontSize: 12, cursor: "pointer", padding: "2px 6px",
+                    background: "none", border: "none", color: "#d1d5db",
+                    fontSize: 14, cursor: "pointer", padding: "2px 6px",
                   }}
+                  onMouseOver={(e) => { e.currentTarget.style.color = "#dc2626"; }}
+                  onMouseOut={(e) => { e.currentTarget.style.color = "#d1d5db"; }}
                 >x</button>
               </div>
             ))}
@@ -243,16 +247,17 @@ function GrantCard({ grant, onUpdate, onDelete, userId }) {
                 placeholder="Lägg till punkt..."
                 style={{
                   flex: 1, padding: "8px 12px", borderRadius: 8,
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  background: "rgba(255,255,255,0.03)", color: "#e2e8f0",
+                  border: "1px solid #d1d5db",
+                  background: "#fff", color: "#111827",
                   fontSize: 13, fontFamily: "'DM Sans', sans-serif",
                 }}
               />
               <button
                 onClick={handleAddItem}
                 style={{
-                  padding: "8px 14px", borderRadius: 8, border: "none",
-                  background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8",
+                  padding: "8px 14px", borderRadius: 8,
+                  border: "1px solid #bfdbfe",
+                  background: "#eff6ff", color: "#2563eb",
                   fontSize: 13, fontWeight: 600, cursor: "pointer",
                   fontFamily: "'DM Sans', sans-serif",
                 }}
@@ -262,7 +267,7 @@ function GrantCard({ grant, onUpdate, onDelete, userId }) {
 
           {/* Notes */}
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, color: "#475569", marginBottom: 6 }}>Egna anteckningar</div>
+            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6, fontWeight: 600 }}>Egna anteckningar</div>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -270,10 +275,10 @@ function GrantCard({ grant, onUpdate, onDelete, userId }) {
               placeholder="Skriv anteckningar om detta bidrag..."
               style={{
                 width: "100%", minHeight: 70, padding: "10px 12px",
-                borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)",
-                background: "rgba(255,255,255,0.03)", color: "#cbd5e1",
+                borderRadius: 8, border: "1px solid #d1d5db",
+                background: "#fff", color: "#374151",
                 fontSize: 13, fontFamily: "'DM Sans', sans-serif",
-                resize: "vertical", lineHeight: 1.4,
+                resize: "vertical", lineHeight: 1.5,
               }}
             />
           </div>
@@ -282,10 +287,10 @@ function GrantCard({ grant, onUpdate, onDelete, userId }) {
           <button
             onClick={() => { if (confirm("Vill du ta bort detta bidrag?")) { onDelete(grant.id); } }}
             style={{
-              background: "rgba(239, 68, 68, 0.06)",
-              border: "1px solid rgba(239, 68, 68, 0.15)",
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
               borderRadius: 8, padding: "8px 14px",
-              color: "#ef4444", fontSize: 12, cursor: "pointer",
+              color: "#dc2626", fontSize: 12, fontWeight: 500, cursor: "pointer",
               fontFamily: "'DM Sans', sans-serif",
             }}
           >Ta bort bidrag</button>
@@ -393,28 +398,29 @@ function CompanyProfile({ quizData }) {
 
   return (
     <div style={{
-      background: "rgba(255,255,255,0.02)",
-      border: "1px solid rgba(255,255,255,0.08)",
-      borderRadius: 14, padding: "20px", marginBottom: 24,
+      background: "#fff",
+      border: "1px solid #e5e7eb",
+      borderRadius: 12, padding: "20px", marginBottom: 20,
+      boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
     }}>
       <div style={{
         display: "flex", justifyContent: "space-between", alignItems: "center",
         marginBottom: 14,
       }}>
         <h3 style={{
-          fontSize: 12, fontWeight: 600, color: "#38bdf8",
-          textTransform: "uppercase", letterSpacing: "1px",
-          margin: 0, fontFamily: "'Space Mono', monospace",
+          fontSize: 13, fontWeight: 700, color: "#111827",
+          textTransform: "uppercase", letterSpacing: "0.5px",
+          margin: 0,
         }}>Din företagsprofil</h3>
         {quizData.last_search_at && (
-          <span style={{ fontSize: 11, color: "#475569" }}>
+          <span style={{ fontSize: 12, color: "#9ca3af" }}>
             Senast sökt: {new Date(quizData.last_search_at).toLocaleDateString("sv-SE")}
           </span>
         )}
       </div>
       <div style={{
         display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-        gap: 10,
+        gap: 8,
       }}>
         {displayFields.map((key) => {
           if (!answers[key]) return null;
@@ -423,41 +429,40 @@ function CompanyProfile({ quizData }) {
           return (
             <div key={key} style={{
               padding: "10px 12px", borderRadius: 8,
-              background: "rgba(255,255,255,0.02)",
-              border: "1px solid rgba(255,255,255,0.05)",
+              background: "#f9fafb",
+              border: "1px solid #f3f4f6",
             }}>
               <div style={{
-                fontSize: 10, color: "#64748b", textTransform: "uppercase",
-                letterSpacing: "0.5px", marginBottom: 3,
+                fontSize: 10, color: "#9ca3af", textTransform: "uppercase",
+                letterSpacing: "0.5px", marginBottom: 3, fontWeight: 600,
               }}>{label}</div>
-              <div style={{ fontSize: 13, color: "#cbd5e1", fontWeight: 500 }}>{value}</div>
+              <div style={{ fontSize: 13, color: "#374151", fontWeight: 500 }}>{value}</div>
             </div>
           );
         })}
         {answers.kommun && answers.kommun !== "prefer_not_to_say" && (
           <div style={{
             padding: "10px 12px", borderRadius: 8,
-            background: "rgba(255,255,255,0.02)",
-            border: "1px solid rgba(255,255,255,0.05)",
+            background: "#f9fafb", border: "1px solid #f3f4f6",
           }}>
             <div style={{
-              fontSize: 10, color: "#64748b", textTransform: "uppercase",
-              letterSpacing: "0.5px", marginBottom: 3,
+              fontSize: 10, color: "#9ca3af", textTransform: "uppercase",
+              letterSpacing: "0.5px", marginBottom: 3, fontWeight: 600,
             }}>Kommun</div>
-            <div style={{ fontSize: 13, color: "#cbd5e1", fontWeight: 500 }}>{answers.kommun}</div>
+            <div style={{ fontSize: 13, color: "#374151", fontWeight: 500 }}>{answers.kommun}</div>
           </div>
         )}
       </div>
       <div style={{ marginTop: 12 }}>
         <a href="/" style={{
-          fontSize: 12, color: "#38bdf8", textDecoration: "none", fontWeight: 500,
-        }}>Gör en ny sökning med uppdaterad info →</a>
+          fontSize: 13, color: "#2563eb", textDecoration: "none", fontWeight: 500,
+        }}>Gör en ny sökning →</a>
       </div>
     </div>
   );
 }
 
-function SearchHistoryCard({ search, onDelete, onReuse }) {
+function SearchHistoryCard({ search, onDelete }) {
   const [expanded, setExpanded] = useState(false);
   const answers = search.answers || {};
   const result = search.result || {};
@@ -466,81 +471,108 @@ function SearchHistoryCard({ search, onDelete, onReuse }) {
     year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
   });
 
+  const handleDownloadPDF = () => {
+    if (result?.benefits) downloadAsPDF(result, answers);
+  };
+
+  const handleDownloadTXT = () => {
+    if (result?.benefits) {
+      const text = resultToText(result, answers);
+      downloadAsFile(text, `bidragsguiden-${new Date(search.created_at).toISOString().slice(0, 10)}.txt`);
+    }
+  };
+
   return (
     <div style={{
-      background: "rgba(255,255,255,0.02)",
-      border: "1px solid rgba(255,255,255,0.06)",
+      background: "#fff",
+      border: "1px solid #e5e7eb",
       borderRadius: 10, padding: "14px 16px", marginBottom: 8,
+      boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
     }}>
       <div
         onClick={() => setExpanded(!expanded)}
         style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>
             {getAnswerLabel("industry", answers.industry) || "Sökning"}{" "}
-            {answers.region && <span style={{ color: "#64748b", fontWeight: 400 }}>i {getAnswerLabel("region", answers.region)}</span>}
+            {answers.region && <span style={{ color: "#6b7280", fontWeight: 400 }}>i {getAnswerLabel("region", answers.region)}</span>}
           </div>
-          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+          <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>
             {date} -- {grantCount} bidrag{search.refine_count > 0 ? `, förfinad ${search.refine_count}x` : ""}
           </div>
         </div>
-        <span style={{ fontSize: 14, color: "#475569" }}>{expanded ? "▲" : "▼"}</span>
+        <span style={{ fontSize: 12, color: "#9ca3af" }}>{expanded ? "▲" : "▼"}</span>
       </div>
 
       {expanded && (
-        <div style={{ marginTop: 12, borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 12 }}>
-          {/* Quick summary */}
+        <div style={{ marginTop: 12, borderTop: "1px solid #f3f4f6", paddingTop: 12 }}>
           {result.summary && (
-            <p style={{ fontSize: 13, color: "#94a3b8", margin: "0 0 12px", lineHeight: 1.5 }}>
+            <p style={{ fontSize: 13, color: "#4b5563", margin: "0 0 12px", lineHeight: 1.6 }}>
               {result.summary}
             </p>
           )}
 
-          {/* Top grants from this search */}
           {result.benefits && result.benefits.length > 0 && (
             <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>
+              <div style={{ fontSize: 11, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6, fontWeight: 600 }}>
                 Bidrag från denna sökning
               </div>
               {result.benefits.slice(0, 5).map((b, i) => (
                 <div key={i} style={{
                   display: "flex", justifyContent: "space-between", alignItems: "center",
-                  padding: "5px 0", borderBottom: "1px solid rgba(255,255,255,0.03)",
-                  fontSize: 12,
+                  padding: "6px 0", borderBottom: "1px solid #f9fafb",
+                  fontSize: 13,
                 }}>
-                  <span style={{ color: "#cbd5e1" }}>{b.name}</span>
+                  <span style={{ color: "#374151" }}>{b.name}</span>
                   <span style={{
-                    fontSize: 10, color: b.priority === "high" ? "#10b981" : b.priority === "medium" ? "#60a5fa" : "#64748b",
+                    fontSize: 11, fontWeight: 500,
+                    color: b.priority === "high" ? "#059669" : b.priority === "medium" ? "#2563eb" : "#9ca3af",
                   }}>{b.priority === "high" ? "Hög" : b.priority === "medium" ? "Medel" : "Låg"}</span>
                 </div>
               ))}
               {result.benefits.length > 5 && (
-                <div style={{ fontSize: 11, color: "#475569", marginTop: 4 }}>
+                <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>
                   +{result.benefits.length - 5} till...
                 </div>
               )}
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <a
               href={`/?prefill=history&searchId=${search.id}`}
               style={{
-                padding: "6px 14px", borderRadius: 8,
-                background: "rgba(56, 189, 248, 0.1)",
-                border: "1px solid rgba(56, 189, 248, 0.2)",
-                color: "#38bdf8", fontSize: 11, fontWeight: 600,
+                padding: "7px 14px", borderRadius: 8,
+                background: "#eff6ff", border: "1px solid #bfdbfe",
+                color: "#2563eb", fontSize: 12, fontWeight: 600,
                 textDecoration: "none", fontFamily: "'DM Sans', sans-serif",
               }}
-            >Sök igen med samma svar</a>
+            >Sök igen</a>
+            <button
+              onClick={handleDownloadPDF}
+              style={{
+                padding: "7px 14px", borderRadius: 8,
+                background: "#f9fafb", border: "1px solid #e5e7eb",
+                color: "#374151", fontSize: 12, fontWeight: 500, cursor: "pointer",
+                fontFamily: "'DM Sans', sans-serif",
+              }}
+            >PDF</button>
+            <button
+              onClick={handleDownloadTXT}
+              style={{
+                padding: "7px 14px", borderRadius: 8,
+                background: "#f9fafb", border: "1px solid #e5e7eb",
+                color: "#374151", fontSize: 12, fontWeight: 500, cursor: "pointer",
+                fontFamily: "'DM Sans', sans-serif",
+              }}
+            >TXT</button>
             <button
               onClick={() => { if (confirm("Ta bort denna sökning?")) onDelete(search.id); }}
               style={{
-                padding: "6px 14px", borderRadius: 8,
-                background: "rgba(239, 68, 68, 0.06)",
-                border: "1px solid rgba(239, 68, 68, 0.15)",
-                color: "#ef4444", fontSize: 11, cursor: "pointer",
+                padding: "7px 14px", borderRadius: 8,
+                background: "#fef2f2", border: "1px solid #fecaca",
+                color: "#dc2626", fontSize: 12, fontWeight: 500, cursor: "pointer",
                 fontFamily: "'DM Sans', sans-serif",
               }}
             >Ta bort</button>
@@ -595,6 +627,35 @@ export default function Dashboard() {
     setSearches((prev) => prev.filter((s) => s.id !== searchId));
   };
 
+  const handleDownloadAllPDF = () => {
+    if (grants.length === 0) return;
+    const fakeResult = {
+      benefits: grants.map((g) => ({
+        name: g.grant_name,
+        agency: g.grant_agency || "",
+        ...(g.grant_data || {}),
+      })),
+      summary: `Du har ${grants.length} sparade bidrag i din Bidragsguiden.`,
+      total_potential: "",
+      recommendations: [],
+    };
+    downloadAsPDF(fakeResult, {});
+  };
+
+  const handleDownloadAllTXT = () => {
+    if (grants.length === 0) return;
+    const fakeResult = {
+      benefits: grants.map((g) => ({
+        name: g.grant_name,
+        agency: g.grant_agency || "",
+        ...(g.grant_data || {}),
+      })),
+      summary: `Du har ${grants.length} sparade bidrag i din Bidragsguiden.`,
+    };
+    const text = resultToText(fakeResult, {});
+    downloadAsFile(text, `bidragsguiden-sparade-${new Date().toISOString().slice(0, 10)}.txt`);
+  };
+
   const handleExportCSV = () => {
     if (grants.length === 0) return;
     const headers = ["Bidrag", "Myndighet", "Status", "Belopp", "Deadline", "Kategori", "Checklista klar", "Anteckningar"];
@@ -616,7 +677,7 @@ export default function Dashboard() {
     const csv = [headers, ...rows]
       .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
       .join("\n");
-    const bom = "\uFEFF"; // UTF-8 BOM for Swedish characters in Excel/Sheets
+    const bom = "\uFEFF";
     const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -626,25 +687,13 @@ export default function Dashboard() {
     URL.revokeObjectURL(url);
   };
 
-  const handleExportJSON = async () => {
-    if (!user) return;
-    const data = await exportUserData(user.id);
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `bidragsguiden-data-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   if (loading || !user) {
     return (
       <div style={{
         minHeight: "100vh",
-        background: "linear-gradient(145deg, #0a1628 0%, #0f2238 30%, #0a1e1e 60%, #0d1117 100%)",
+        background: "#f8fafc",
         display: "flex", alignItems: "center", justifyContent: "center",
-        color: "#64748b", fontFamily: "'DM Sans', sans-serif",
+        color: "#9ca3af", fontFamily: "'DM Sans', sans-serif",
       }}>
         Laddar...
       </div>
@@ -663,85 +712,96 @@ export default function Dashboard() {
   return (
     <>
       <Head>
-        <title>Dashboard — Bidragsguiden</title>
+        <title>Mina bidrag — Bidragsguiden</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
       </Head>
 
       <div style={{
         minHeight: "100vh",
-        background: "linear-gradient(145deg, #0a1628 0%, #0f2238 30%, #0a1e1e 60%, #0d1117 100%)",
+        background: "#f8fafc",
         fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
-        color: "#e2e8f0",
+        color: "#111827",
       }}>
+        {/* Top navigation bar */}
         <div style={{
-          maxWidth: 720, margin: "0 auto", padding: "24px 16px",
+          background: "#fff",
+          borderBottom: "1px solid #e5e7eb",
+          position: "sticky", top: 0, zIndex: 10,
         }}>
-          {/* Header */}
           <div style={{
+            maxWidth: 800, margin: "0 auto", padding: "12px 20px",
             display: "flex", justifyContent: "space-between",
-            alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12,
+            alignItems: "center",
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{
-                width: 32, height: 32, borderRadius: 8,
-                background: "linear-gradient(135deg, #38bdf8, #10b981)",
+                width: 28, height: 28, borderRadius: 7,
+                background: "linear-gradient(135deg, #2563eb, #059669)",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 16, fontWeight: 700, color: "#0a1628",
+                fontSize: 14, fontWeight: 700, color: "#fff",
                 fontFamily: "'Space Mono', monospace",
               }}>B</div>
-              <h1 style={{
-                fontSize: 18, fontWeight: 700, margin: 0,
+              <span style={{
+                fontSize: 15, fontWeight: 700, color: "#111827",
                 fontFamily: "'Space Mono', monospace",
-                color: "#e2e8f0",
-              }}>Dashboard</h1>
+              }}>Bidragsguiden</span>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <span style={{ fontSize: 12, color: "#64748b" }}>
+              <span style={{ fontSize: 13, color: "#6b7280" }}>
                 {profile?.display_name || profile?.email || ""}
               </span>
               <a href="/" style={{
                 padding: "6px 14px", borderRadius: 8,
-                background: "rgba(56, 189, 248, 0.1)",
-                border: "1px solid rgba(56, 189, 248, 0.2)",
-                color: "#38bdf8", fontSize: 12, fontWeight: 500,
+                background: "#2563eb", color: "#fff",
+                fontSize: 12, fontWeight: 600,
                 textDecoration: "none", fontFamily: "'DM Sans', sans-serif",
-              }}>Nytt quiz</a>
+              }}>Ny sökning</a>
               <button
                 onClick={signOut}
                 style={{
                   padding: "6px 14px", borderRadius: 8,
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  color: "#64748b", fontSize: 12, cursor: "pointer",
+                  background: "#fff",
+                  border: "1px solid #d1d5db",
+                  color: "#6b7280", fontSize: 12, cursor: "pointer",
                   fontFamily: "'DM Sans', sans-serif",
                 }}
               >Logga ut</button>
             </div>
           </div>
+        </div>
+
+        <div style={{
+          maxWidth: 800, margin: "0 auto", padding: "28px 20px",
+        }}>
+          {/* Page title */}
+          <h1 style={{
+            fontSize: 24, fontWeight: 700, margin: "0 0 24px",
+            color: "#111827",
+          }}>Mina bidrag</h1>
 
           {/* Stats overview */}
           <div style={{
-            display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-            gap: 10, marginBottom: 24,
+            display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+            gap: 12, marginBottom: 24,
           }}>
             {[
-              { label: "Totalt", value: grants.length, color: "#e2e8f0" },
-              { label: "Nya", value: grants.filter((g) => g.status === "new").length, color: "#38bdf8" },
-              { label: "Undersöker", value: grants.filter((g) => g.status === "investigating").length, color: "#fbbf24" },
-              { label: "Ansökt", value: grants.filter((g) => g.status === "applied").length, color: "#60a5fa" },
-              { label: "Beviljade", value: grants.filter((g) => g.status === "granted").length, color: "#10b981" },
+              { label: "Totalt", value: grants.length, color: "#111827", bg: "#fff" },
+              { label: "Nya", value: grants.filter((g) => g.status === "new").length, color: "#2563eb", bg: "#eff6ff" },
+              { label: "Undersöker", value: grants.filter((g) => g.status === "investigating").length, color: "#d97706", bg: "#fffbeb" },
+              { label: "Ansökt", value: grants.filter((g) => g.status === "applied").length, color: "#2563eb", bg: "#eff6ff" },
+              { label: "Beviljade", value: grants.filter((g) => g.status === "granted").length, color: "#059669", bg: "#ecfdf5" },
             ].map((s) => (
               <div key={s.label} style={{
-                padding: "14px", borderRadius: 10,
-                background: "rgba(255,255,255,0.02)",
-                border: "1px solid rgba(255,255,255,0.06)",
+                padding: "16px", borderRadius: 10,
+                background: s.bg,
+                border: "1px solid #e5e7eb",
                 textAlign: "center",
               }}>
-                <div style={{ fontSize: 22, fontWeight: 700, color: s.color, fontFamily: "'Space Mono', monospace" }}>
+                <div style={{ fontSize: 26, fontWeight: 700, color: s.color, fontFamily: "'Space Mono', monospace" }}>
                   {s.value}
                 </div>
-                <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{s.label}</div>
+                <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2, fontWeight: 500 }}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -756,18 +816,18 @@ export default function Dashboard() {
                 onClick={() => setShowSearches(!showSearches)}
                 style={{
                   display: "flex", justifyContent: "space-between", alignItems: "center",
-                  width: "100%", padding: "14px 16px", borderRadius: 12,
-                  background: "rgba(167, 139, 250, 0.04)",
-                  border: "1px solid rgba(167, 139, 250, 0.15)",
+                  width: "100%", padding: "14px 16px", borderRadius: 10,
+                  background: "#fff",
+                  border: "1px solid #e5e7eb",
                   cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
                 }}
               >
                 <span style={{
-                  fontSize: 12, fontWeight: 600, color: "#a78bfa",
-                  textTransform: "uppercase", letterSpacing: "1px",
-                  fontFamily: "'Space Mono', monospace",
+                  fontSize: 13, fontWeight: 700, color: "#111827",
+                  textTransform: "uppercase", letterSpacing: "0.5px",
                 }}>Tidigare sökningar ({searches.length})</span>
-                <span style={{ fontSize: 14, color: "#475569" }}>{showSearches ? "▲" : "▼"}</span>
+                <span style={{ fontSize: 12, color: "#9ca3af" }}>{showSearches ? "▲" : "▼"}</span>
               </button>
               {showSearches && (
                 <div style={{ marginTop: 10 }}>
@@ -786,25 +846,27 @@ export default function Dashboard() {
           {/* Upcoming deadlines */}
           {upcomingDeadlines.length > 0 && (
             <div style={{
-              padding: "16px", borderRadius: 12, marginBottom: 24,
-              background: "rgba(251, 191, 36, 0.04)",
-              border: "1px solid rgba(251, 191, 36, 0.15)",
+              padding: "16px 20px", borderRadius: 10, marginBottom: 24,
+              background: "#fffbeb", border: "1px solid #fde68a",
             }}>
               <h3 style={{
-                fontSize: 12, fontWeight: 600, color: "#fbbf24",
-                textTransform: "uppercase", letterSpacing: "1px",
-                margin: "0 0 10px", fontFamily: "'Space Mono', monospace",
+                fontSize: 13, fontWeight: 700, color: "#92400e",
+                textTransform: "uppercase", letterSpacing: "0.5px",
+                margin: "0 0 12px",
               }}>Kommande deadlines</h3>
               {upcomingDeadlines.map((g) => {
                 const days = Math.ceil((new Date(g.deadline) - new Date()) / (1000 * 60 * 60 * 24));
                 return (
                   <div key={g.id} style={{
                     display: "flex", justifyContent: "space-between",
-                    padding: "6px 0", fontSize: 13,
-                    borderBottom: "1px solid rgba(255,255,255,0.03)",
+                    padding: "8px 0", fontSize: 14,
+                    borderBottom: "1px solid #fef3c7",
                   }}>
-                    <span style={{ color: "#cbd5e1" }}>{g.grant_name}</span>
-                    <span style={{ color: days <= 7 ? "#ef4444" : days <= 30 ? "#fbbf24" : "#64748b", fontWeight: 500 }}>
+                    <span style={{ color: "#374151" }}>{g.grant_name}</span>
+                    <span style={{
+                      color: days <= 7 ? "#dc2626" : days <= 30 ? "#d97706" : "#6b7280",
+                      fontWeight: 600, fontSize: 13,
+                    }}>
                       {new Date(g.deadline).toLocaleDateString("sv-SE")} ({days}d)
                     </span>
                   </div>
@@ -821,11 +883,12 @@ export default function Dashboard() {
             <button
               onClick={() => setFilter("all")}
               style={{
-                padding: "6px 14px", borderRadius: 8, border: "none",
-                fontSize: 12, fontWeight: 600, cursor: "pointer",
+                padding: "7px 16px", borderRadius: 8,
+                fontSize: 13, fontWeight: 600, cursor: "pointer",
                 fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap",
-                background: filter === "all" ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.03)",
-                color: filter === "all" ? "#e2e8f0" : "#64748b",
+                background: filter === "all" ? "#111827" : "#fff",
+                border: `1px solid ${filter === "all" ? "#111827" : "#d1d5db"}`,
+                color: filter === "all" ? "#fff" : "#6b7280",
               }}
             >Alla ({grants.length})</button>
             {Object.entries(STATUS_CONFIG).map(([key, cfg]) => {
@@ -836,11 +899,12 @@ export default function Dashboard() {
                   key={key}
                   onClick={() => setFilter(key)}
                   style={{
-                    padding: "6px 14px", borderRadius: 8, border: "none",
-                    fontSize: 12, fontWeight: 600, cursor: "pointer",
+                    padding: "7px 16px", borderRadius: 8,
+                    fontSize: 13, fontWeight: 600, cursor: "pointer",
                     fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap",
-                    background: filter === key ? cfg.bg : "rgba(255,255,255,0.03)",
-                    color: filter === key ? cfg.color : "#64748b",
+                    background: filter === key ? cfg.bg : "#fff",
+                    border: `1px solid ${filter === key ? cfg.border : "#d1d5db"}`,
+                    color: filter === key ? cfg.color : "#6b7280",
                   }}
                 >{cfg.label} ({count})</button>
               );
@@ -849,24 +913,30 @@ export default function Dashboard() {
 
           {/* Grant list */}
           {loadingGrants ? (
-            <p style={{ textAlign: "center", color: "#64748b", padding: 40 }}>Laddar bidrag...</p>
+            <p style={{ textAlign: "center", color: "#9ca3af", padding: 40 }}>Laddar bidrag...</p>
           ) : filteredGrants.length === 0 ? (
             <div style={{
               textAlign: "center", padding: "60px 20px",
-              color: "#64748b",
+              background: "#fff", borderRadius: 12,
+              border: "1px solid #e5e7eb",
             }}>
-              <p style={{ fontSize: 15, marginBottom: 16 }}>
+              <p style={{ fontSize: 16, color: "#6b7280", marginBottom: 6 }}>
                 {grants.length === 0
                   ? "Du har inga sparade bidrag ännu."
                   : "Inga bidrag med den valda statusen."}
               </p>
               {grants.length === 0 && (
-                <a href="/" style={{
-                  display: "inline-block", padding: "12px 24px", borderRadius: 12,
-                  background: "linear-gradient(135deg, #38bdf8, #10b981)",
-                  color: "#0a1628", fontWeight: 700, textDecoration: "none",
-                  fontSize: 14, fontFamily: "'DM Sans', sans-serif",
-                }}>Gör quizet och hitta bidrag</a>
+                <>
+                  <p style={{ fontSize: 14, color: "#9ca3af", margin: "0 0 20px" }}>
+                    Gör quizet för att hitta bidrag som passar ditt företag.
+                  </p>
+                  <a href="/" style={{
+                    display: "inline-block", padding: "12px 28px", borderRadius: 10,
+                    background: "#2563eb", color: "#fff",
+                    fontWeight: 700, textDecoration: "none",
+                    fontSize: 14, fontFamily: "'DM Sans', sans-serif",
+                  }}>Hitta bidrag</a>
+                </>
               )}
             </div>
           ) : (
@@ -881,43 +951,57 @@ export default function Dashboard() {
             ))
           )}
 
-          {/* Bottom actions */}
+          {/* Download actions */}
           {grants.length > 0 && (
             <div style={{
-              display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap",
+              marginTop: 20, padding: "16px 20px", borderRadius: 10,
+              background: "#fff", border: "1px solid #e5e7eb",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
             }}>
-              <button
-                onClick={handleExportCSV}
-                style={{
-                  flex: 1, padding: "12px", borderRadius: 10,
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  color: "#64748b", fontSize: 13, fontWeight: 500, cursor: "pointer",
-                  fontFamily: "'DM Sans', sans-serif",
-                }}
-              >Ladda ner CSV (Google Sheets)</button>
-              <button
-                onClick={handleExportJSON}
-                style={{
-                  flex: 1, padding: "12px", borderRadius: 10,
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  color: "#64748b", fontSize: 13, fontWeight: 500, cursor: "pointer",
-                  fontFamily: "'DM Sans', sans-serif",
-                }}
-              >Exportera all data (JSON)</button>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Ladda ner dina bidrag
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  onClick={handleDownloadAllPDF}
+                  style={{
+                    flex: 1, minWidth: 140, padding: "10px 16px", borderRadius: 8,
+                    background: "#2563eb", border: "none",
+                    color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}
+                >Ladda ner PDF</button>
+                <button
+                  onClick={handleDownloadAllTXT}
+                  style={{
+                    flex: 1, minWidth: 140, padding: "10px 16px", borderRadius: 8,
+                    background: "#f9fafb", border: "1px solid #d1d5db",
+                    color: "#374151", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}
+                >Ladda ner TXT</button>
+                <button
+                  onClick={handleExportCSV}
+                  style={{
+                    flex: 1, minWidth: 140, padding: "10px 16px", borderRadius: 8,
+                    background: "#f9fafb", border: "1px solid #d1d5db",
+                    color: "#374151", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}
+                >Ladda ner CSV</button>
+              </div>
             </div>
           )}
 
-          {/* Footer links */}
+          {/* Footer */}
           <div style={{
             marginTop: 32, paddingTop: 16,
-            borderTop: "1px solid rgba(255,255,255,0.04)",
-            display: "flex", justifyContent: "center", gap: 16,
-            fontSize: 12, color: "#475569",
+            borderTop: "1px solid #e5e7eb",
+            display: "flex", justifyContent: "center", gap: 20,
+            fontSize: 13, color: "#9ca3af",
           }}>
-            <a href="/integritetspolicy" style={{ color: "#475569", textDecoration: "none" }}>Integritetspolicy</a>
-            <a href="/" style={{ color: "#475569", textDecoration: "none" }}>Bidragsguiden</a>
+            <a href="/integritetspolicy" style={{ color: "#9ca3af", textDecoration: "none" }}>Integritetspolicy</a>
+            <a href="/" style={{ color: "#9ca3af", textDecoration: "none" }}>Bidragsguiden</a>
           </div>
         </div>
       </div>
