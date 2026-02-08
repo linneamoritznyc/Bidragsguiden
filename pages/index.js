@@ -357,6 +357,8 @@ export default function Home() {
   const [showRefineDialog, setShowRefineDialog] = useState(false);
   const [refineComment, setRefineComment] = useState("");
   const [savedGrants, setSavedGrants] = useState([]); // grants user marked "yes" across refines
+  const [usageInfo, setUsageInfo] = useState(null); // { used, limit }
+  const [dailyLimitHit, setDailyLimitHit] = useState(null); // limit error message
   const resultRef = useRef(null);
 
   const categories = QUIZ_CATEGORIES;
@@ -634,14 +636,29 @@ VIKTIGT om recommendations-fältet:
     const response = await fetch("/api/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify({
+        prompt,
+        sessionId: sessionId || undefined,
+        userId: user?.id || undefined,
+      }),
     });
 
     if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      if (errData.error === "daily_limit") {
+        setDailyLimitHit(errData);
+        throw new Error("daily_limit");
+      }
       throw new Error(`Server error: ${response.status}`);
     }
 
     const data = await response.json();
+
+    // Track usage info from response
+    if (data._usage) {
+      setUsageInfo(data._usage);
+    }
+
     const text = data.content
       .map((item) => (item.type === "text" ? item.text : ""))
       .filter(Boolean)
@@ -654,6 +671,7 @@ VIKTIGT om recommendations-fältet:
   const fetchResults = async (finalAnswers) => {
     setLoading(true);
     setError(null);
+    setDailyLimitHit(null);
     setFeedback({});
     setRefineCount(0);
     transition(() => setStep(categories.length));
@@ -676,8 +694,10 @@ VIKTIGT om recommendations-fältet:
         refreshHistory();
       }
     } catch (err) {
-      console.error("Error:", err);
-      setError("Något gick fel. Försök igen om en stund.");
+      if (err.message !== "daily_limit") {
+        console.error("Error:", err);
+        setError("Något gick fel. Försök igen om en stund.");
+      }
     } finally {
       setLoading(false);
     }
@@ -733,6 +753,12 @@ ANVÄNDARENS FEEDBACK PÅ TIDIGARE REKOMMENDATIONER:
       feedbackPrompt += `\n\nANVÄNDARENS EGNA KOMMENTAR/FRÅGA:\n${extraComment.trim()}`;
     }
 
+    // Compute grants to save before building the prompt
+    const newSaved = Object.entries(feedback)
+      .filter(([, fb]) => fb.eligible === "yes")
+      .map(([idx]) => result.benefits[parseInt(idx)])
+      .filter(Boolean);
+
     // Tell AI which grants are already saved so it doesn't repeat them
     const allSavedNames = [
       ...savedGrants.map((g) => g.name),
@@ -754,11 +780,7 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
 - Varje bidrag som hade en fråga/kommentar från användaren MÅSTE ha ett user_answer med svar.`;
 
     try {
-      // Save grants the user marked as "yes" before refining
-      const newSaved = Object.entries(feedback)
-        .filter(([, fb]) => fb.eligible === "yes")
-        .map(([idx]) => result.benefits[parseInt(idx)])
-        .filter(Boolean);
+      // Save grants the user marked as "yes"
       if (newSaved.length > 0) {
         setSavedGrants((prev) => {
           const existingNames = new Set(prev.map((g) => g.name));
@@ -778,8 +800,10 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
         updateSearch({ searchId, result: parsed, refineCount: newRefineCount });
       }
     } catch (err) {
-      console.error("Refine error:", err);
-      setError("Något gick fel vid förfining. Försök igen.");
+      if (err.message !== "daily_limit") {
+        console.error("Refine error:", err);
+        setError("Något gick fel vid förfining. Försök igen.");
+      }
     } finally {
       setRefining(false);
     }
@@ -792,6 +816,7 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
       setMultiSelect([]);
       setResult(null);
       setError(null);
+      setDailyLimitHit(null);
       setFeedback({});
       setRefineCount(0);
       setSearchId(null);
@@ -1282,8 +1307,63 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
               </div>
             )}
 
+            {/* Daily limit reached */}
+            {dailyLimitHit && !loading && !refining && (
+              <div style={{
+                textAlign: "center", padding: "40px 20px", marginBottom: 20,
+                background: "rgba(251, 191, 36, 0.06)",
+                border: "1px solid rgba(251, 191, 36, 0.2)",
+                borderRadius: 14,
+              }}>
+                <div style={{ fontSize: 32, marginBottom: 16 }}>--</div>
+                <h3 style={{ fontSize: 18, fontWeight: 600, color: "#fbbf24", margin: "0 0 12px" }}>
+                  Daglig gräns nådd
+                </h3>
+                <p style={{ fontSize: 14, color: "#94a3b8", margin: "0 0 20px", lineHeight: 1.6 }}>
+                  {dailyLimitHit.message}
+                </p>
+
+                {!dailyLimitHit.loggedIn && (
+                  <div style={{ marginBottom: 16 }}>
+                    <a href="/login" style={{
+                      display: "inline-block", padding: "12px 28px", borderRadius: 10,
+                      background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8",
+                      border: "1px solid rgba(56, 189, 248, 0.3)",
+                      textDecoration: "none", fontWeight: 600, fontSize: 14,
+                      fontFamily: "'DM Sans', sans-serif",
+                    }}>
+                      Logga in för fler sökningar
+                    </a>
+                    <p style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>
+                      Inloggade användare får {5} sökningar per dag
+                    </p>
+                  </div>
+                )}
+
+                {dailyLimitHit.loggedIn && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{
+                      display: "inline-block", padding: "12px 28px", borderRadius: 10,
+                      background: "rgba(16, 185, 129, 0.1)", color: "#10b981",
+                      border: "1px solid rgba(16, 185, 129, 0.25)",
+                      fontWeight: 600, fontSize: 14,
+                    }}>
+                      Premium kommer snart
+                    </div>
+                    <p style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>
+                      Obegränsad tillgång för en liten månadsavgift
+                    </p>
+                  </div>
+                )}
+
+                <p style={{ fontSize: 12, color: "#475569", marginTop: 16 }}>
+                  Dina sökningar nollställs vid midnatt. Kom tillbaka imorgon!
+                </p>
+              </div>
+            )}
+
             {/* Error */}
-            {error && !loading && !refining && (
+            {error && !dailyLimitHit && !loading && !refining && (
               <div style={{ textAlign: "center", paddingTop: 20, marginBottom: 20 }}>
                 <p style={{ color: "#f87171", marginBottom: 16 }}>{error}</p>
                 <button onClick={restart} style={{
@@ -1297,19 +1377,37 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
             {/* Results */}
             {result && !loading && !refining && (
               <div ref={resultRef}>
-                {/* Refine count badge */}
-                {refineCount > 0 && (
-                  <div style={{
-                    display: "inline-flex", alignItems: "center", gap: 6,
-                    padding: "5px 12px", borderRadius: 20, marginBottom: 16,
-                    fontSize: 11, fontWeight: 600,
-                    background: "rgba(167, 139, 250, 0.1)",
-                    color: "#a78bfa",
-                    border: "1px solid rgba(167, 139, 250, 0.25)",
-                  }}>
-                    Förfinad {refineCount} {refineCount === 1 ? "gång" : "gånger"}
-                  </div>
-                )}
+                {/* Badges row */}
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+                  {refineCount > 0 && (
+                    <div style={{
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      padding: "5px 12px", borderRadius: 20,
+                      fontSize: 11, fontWeight: 600,
+                      background: "rgba(167, 139, 250, 0.1)",
+                      color: "#a78bfa",
+                      border: "1px solid rgba(167, 139, 250, 0.25)",
+                    }}>
+                      Förfinad {refineCount} {refineCount === 1 ? "gång" : "gånger"}
+                    </div>
+                  )}
+                  {usageInfo && (
+                    <div style={{
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      padding: "5px 12px", borderRadius: 20,
+                      fontSize: 11, fontWeight: 600,
+                      background: usageInfo.used >= usageInfo.limit - 1
+                        ? "rgba(251, 191, 36, 0.1)"
+                        : "rgba(255,255,255,0.04)",
+                      color: usageInfo.used >= usageInfo.limit - 1 ? "#fbbf24" : "#64748b",
+                      border: `1px solid ${usageInfo.used >= usageInfo.limit - 1
+                        ? "rgba(251, 191, 36, 0.25)"
+                        : "rgba(255,255,255,0.08)"}`,
+                    }}>
+                      {usageInfo.used} av {usageInfo.limit} sökningar idag
+                    </div>
+                  )}
+                </div>
 
                 {/* Summary */}
                 <div style={{
