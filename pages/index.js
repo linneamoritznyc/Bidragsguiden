@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Head from "next/head";
 import { QUIZ_CATEGORIES } from "../components/questions";
+import { useAuth } from "../lib/auth";
+import { saveGrant } from "../lib/dashboard";
 import {
   getSession,
   saveSearch,
@@ -27,7 +29,7 @@ const LoadingDots = () => {
 };
 
 // Single grant card with eligibility toggle and feedback
-function GrantCard({ benefit, index, feedback, onFeedbackChange, saved }) {
+function GrantCard({ benefit, index, feedback, onFeedbackChange, saved, onSaveToDashboard, dashboardSaved }) {
   const [expanded, setExpanded] = useState(false);
   const [reasonInput, setReasonInput] = useState(feedback?.reason || "");
 
@@ -195,6 +197,35 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange, saved }) {
         </div>
       )}
 
+      {/* Save to dashboard button */}
+      {onSaveToDashboard && !saved && (
+        <div style={{ marginBottom: 12 }}>
+          {dashboardSaved ? (
+            <div style={{
+              padding: "8px 14px", borderRadius: 8,
+              background: "rgba(16, 185, 129, 0.08)",
+              border: "1px solid rgba(16, 185, 129, 0.2)",
+              fontSize: 12, color: "#10b981", fontWeight: 500,
+              textAlign: "center",
+            }}>Sparad i din dashboard</div>
+          ) : (
+            <button
+              onClick={() => onSaveToDashboard(benefit)}
+              style={{
+                width: "100%", padding: "10px 14px", borderRadius: 8,
+                background: "rgba(16, 185, 129, 0.08)",
+                border: "1px solid rgba(16, 185, 129, 0.2)",
+                color: "#10b981", fontSize: 12, fontWeight: 600,
+                cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                transition: "all 0.2s",
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = "rgba(16, 185, 129, 0.15)"; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = "rgba(16, 185, 129, 0.08)"; }}
+            >Spara till min dashboard</button>
+          )}
+        </div>
+      )}
+
       {/* Eligible / Not Eligible buttons */}
       <div style={{
         borderTop: "1px solid rgba(255,255,255,0.06)",
@@ -302,10 +333,12 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange, saved }) {
 
 
 export default function Home() {
+  const { user } = useAuth();
   const [step, setStep] = useState(-1);
   const [answers, setAnswers] = useState({});
   const [multiSelect, setMultiSelect] = useState([]);
   const [result, setResult] = useState(null);
+  const [dashboardSaved, setDashboardSaved] = useState({}); // { grantName: true }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [fadeIn, setFadeIn] = useState(true);
@@ -815,6 +848,14 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
     downloadAsPDF(exportResult, answers);
   };
 
+  const handleSaveToDashboard = async (grant) => {
+    if (!user) return;
+    const id = await saveGrant({ userId: user.id, grant });
+    if (id) {
+      setDashboardSaved((prev) => ({ ...prev, [grant.name]: true }));
+    }
+  };
+
   const handleEmailSignup = async () => {
     if (!emailInput || !emailInput.includes("@")) {
       setEmailError("Ange en giltig e-postadress");
@@ -879,6 +920,21 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
         }}>
           {/* Header */}
           <div style={{ textAlign: "center", marginBottom: 32 }}>
+            <div style={{
+              display: "flex", justifyContent: "flex-end", marginBottom: 8,
+            }}>
+              <a
+                href={user ? "/dashboard" : "/login"}
+                style={{
+                  padding: "5px 14px", borderRadius: 8,
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  color: "#64748b", fontSize: 12, textDecoration: "none",
+                  fontFamily: "'DM Sans', sans-serif",
+                  transition: "all 0.2s",
+                }}
+              >{user ? "Min dashboard" : "Logga in"}</a>
+            </div>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
               <div style={{
                 width: 36, height: 36, borderRadius: 10,
@@ -1362,6 +1418,8 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                     index={i}
                     feedback={feedback[i]}
                     onFeedbackChange={handleFeedbackChange}
+                    onSaveToDashboard={user ? handleSaveToDashboard : null}
+                    dashboardSaved={dashboardSaved[benefit.name]}
                   />
                 ))}
 
@@ -1534,6 +1592,34 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {/* Login CTA for non-logged-in users */}
+                {!user && (
+                  <div style={{
+                    marginTop: 24, padding: "20px", borderRadius: 14,
+                    background: "rgba(16, 185, 129, 0.04)",
+                    border: "1px solid rgba(16, 185, 129, 0.15)",
+                  }}>
+                    <h4 style={{ fontSize: 15, fontWeight: 600, color: "#10b981", margin: "0 0 6px" }}>
+                      Vill du spara dina bidrag?
+                    </h4>
+                    <p style={{
+                      fontSize: 13, color: "#94a3b8", margin: "0 0 14px", lineHeight: 1.5,
+                    }}>
+                      Logga in med Google för att spara bidrag i din egen dashboard med checklistor,
+                      deadlines och statushantering.
+                    </p>
+                    <a
+                      href="/login"
+                      style={{
+                        display: "inline-block", padding: "10px 24px", borderRadius: 10,
+                        background: "linear-gradient(135deg, #38bdf8, #10b981)",
+                        color: "#0a1628", fontWeight: 700, fontSize: 14,
+                        textDecoration: "none", fontFamily: "'DM Sans', sans-serif",
+                      }}
+                    >Logga in och spara</a>
                   </div>
                 )}
 
