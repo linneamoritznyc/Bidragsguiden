@@ -644,7 +644,12 @@ KRITISKT — ALDRIG lämna användaren utan hopp:
     "Konkret rekommendation 3 — t.ex. 'Bidragslandskapet ändras löpande — det kan vara värt att söka igen om 6 månader'"
   ],
   "summary": "En kort sammanfattning av företagets totala möjligheter (2-3 meningar). Om få bidrag matchar, var uppmuntrande och förklara vilka möjligheter som kan öppna sig.",
-  "total_potential": "Ungefärlig total summa företaget potentiellt kan söka"
+  "total_potential": "Ungefärlig total summa företaget potentiellt kan söka",
+  "follow_up_questions": [
+    "Relevant uppföljningsfråga 1 baserat på företagets situation",
+    "Relevant uppföljningsfråga 2 som kan leda till fler bidrag",
+    "Relevant uppföljningsfråga 3 om specifika möjligheter"
+  ]
 }
 
 Inkludera 6-12 relevanta bidrag/stöd, sorterade efter deadline (närmast deadline först, löpande sist). Var specifik och korrekt. Inkludera regionala stöd. Blanda inte ihop lån och bidrag — märk tydligt.
@@ -656,7 +661,19 @@ VIKTIGT om recommendations-fältet:
 - Inkludera praktiska nästa steg (kontakta Almi, ring regionens näringslivsenhet, etc.)
 - Om få bidrag hittades, ge tips om vad företaget kan göra för att kvalificera sig i framtiden
 - Nämn att bidragslandskapet ändras och att det kan vara värt att kolla igen
-- Om relevant, nämn skattelättnader som RUT/ROT som inte är bidrag men gynnar företaget`;
+- Om relevant, nämn skattelättnader som RUT/ROT som inte är bidrag men gynnar företaget
+
+VIKTIGT om follow_up_questions:
+- Ge ALLTID exakt 3 smarta uppföljningsfrågor som AI:n ställer TILL användaren
+- Frågorna ska vara relevanta baserat på företagets svar och de bidrag som hittades
+- Syftet är att användaren kan klicka på en fråga för att förfina resultaten
+- Formulera frågorna som JA/NEJ eller korta svar, t.ex.:
+  "Planerar ni att anställa personal de närmaste 12 månaderna?"
+  "Har ni verksamhet inom miljö- eller klimatområdet?"
+  "Exporterar ni eller planerar ni att börja exportera?"
+  "Har grundaren relevant högskoleutbildning?"
+- Anpassa frågorna efter vad som INTE redan besvarats i quizet
+- Välj frågor som faktiskt kan öppna upp nya bidragsmöjligheter`;
 
   const callAPI = async (prompt) => {
     const response = await fetch("/api/analyze", {
