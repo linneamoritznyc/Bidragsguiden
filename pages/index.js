@@ -3,7 +3,7 @@ import Head from "next/head";
 import { QUIZ_CATEGORIES } from "../components/questions";
 import { KOMMUNER_BY_LAN } from "../components/kommuner";
 import { useAuth } from "../lib/auth";
-import { saveGrant } from "../lib/dashboard";
+import { saveGrant, saveQuizAnswers, getQuizAnswers, saveUserSearch } from "../lib/dashboard";
 import {
   getSession,
   saveSearch,
@@ -362,6 +362,8 @@ export default function Home() {
   const [dailyLimitHit, setDailyLimitHit] = useState(null); // limit error message
   const [kommun, setKommun] = useState(null); // follow-up: which municipality
   const [showKommunPrompt, setShowKommunPrompt] = useState(true); // show the kommun question
+  const [savedProfile, setSavedProfile] = useState(null); // saved quiz answers from profile
+  const [showPrefillBanner, setShowPrefillBanner] = useState(false);
   const resultRef = useRef(null);
 
   const categories = QUIZ_CATEGORIES;
@@ -378,6 +380,22 @@ export default function Home() {
     }
     init();
   }, []);
+
+  // Load saved quiz answers for logged-in users
+  useEffect(() => {
+    async function loadSavedProfile() {
+      if (!user) return;
+      const data = await getQuizAnswers(user.id);
+      if (data?.quiz_answers && Object.keys(data.quiz_answers).length > 0) {
+        setSavedProfile(data.quiz_answers);
+        // Show prefill banner only on landing (step === -1)
+        if (step === -1) {
+          setShowPrefillBanner(true);
+        }
+      }
+    }
+    loadSavedProfile();
+  }, [user]);
 
   const refreshHistory = useCallback(async () => {
     if (sessionId) {
@@ -690,7 +708,7 @@ VIKTIGT om recommendations-fältet:
       const parsed = await callAPI(`${contextPrompt}\n\n${jsonInstructions}`);
       setResult(parsed);
 
-      // Save to Supabase
+      // Save to Supabase (anonymous session)
       if (sessionId) {
         const sid = await saveSearch({
           sessionId,
@@ -700,6 +718,18 @@ VIKTIGT om recommendations-fältet:
         });
         setSearchId(sid);
         refreshHistory();
+      }
+
+      // Save to user profile (logged-in users)
+      if (user?.id) {
+        saveQuizAnswers({ userId: user.id, answers: finalAnswers, kommun });
+        saveUserSearch({
+          userId: user.id,
+          answers: finalAnswers,
+          result: parsed,
+          kommun,
+          refineCount: 0,
+        });
       }
     } catch (err) {
       if (err.message !== "daily_limit") {
@@ -1064,6 +1094,55 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                     e.currentTarget.style.boxShadow = "0 0 30px rgba(56, 189, 248, 0.2)";
                   }}
                 >Hitta bidrag →</button>
+
+                {/* Prefill banner for returning users */}
+                {showPrefillBanner && savedProfile && (
+                  <div style={{
+                    marginTop: 24, padding: "16px 20px", borderRadius: 12,
+                    background: "rgba(167, 139, 250, 0.06)",
+                    border: "1px solid rgba(167, 139, 250, 0.2)",
+                    maxWidth: 440, margin: "24px auto 0",
+                    textAlign: "left",
+                  }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#a78bfa", marginBottom: 6 }}>
+                      Välkommen tillbaka!
+                    </div>
+                    <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12, lineHeight: 1.5 }}>
+                      Vi har dina svar från förra sökningen. Vill du använda dem igen?
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        onClick={() => {
+                          const { kommun: savedKommun, ...quizAnswers } = savedProfile;
+                          setAnswers(quizAnswers);
+                          if (savedKommun) setKommun(savedKommun);
+                          setShowPrefillBanner(false);
+                          fetchResults(quizAnswers);
+                        }}
+                        style={{
+                          padding: "8px 18px", borderRadius: 8,
+                          background: "rgba(167, 139, 250, 0.15)",
+                          border: "1px solid rgba(167, 139, 250, 0.3)",
+                          color: "#a78bfa", fontSize: 12, fontWeight: 600,
+                          cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                        }}
+                      >Sök med samma svar</button>
+                      <button
+                        onClick={() => {
+                          setShowPrefillBanner(false);
+                          transition(() => setStep(0));
+                        }}
+                        style={{
+                          padding: "8px 18px", borderRadius: 8,
+                          background: "rgba(255,255,255,0.04)",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          color: "#64748b", fontSize: 12, fontWeight: 600,
+                          cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                        }}
+                      >Börja om</button>
+                    </div>
+                  </div>
+                )}
 
                 <div style={{
                   marginTop: 32, display: "flex", justifyContent: "center", gap: 20,

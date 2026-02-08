@@ -12,6 +12,9 @@ import {
   addChecklistItem,
   deleteChecklistItem,
   exportUserData,
+  getQuizAnswers,
+  getUserSearches,
+  deleteUserSearch,
 } from "../lib/dashboard";
 
 const STATUS_CONFIG = {
@@ -292,12 +295,271 @@ function GrantCard({ grant, onUpdate, onDelete, userId }) {
   );
 }
 
+// Readable labels for quiz answers
+const QUIZ_LABELS = {
+  company_type: {
+    _title: "Bolagsform",
+    enskild_firma: "Enskild firma",
+    handelsbolag: "Handelsbolag (HB)",
+    kommanditbolag: "Kommanditbolag (KB)",
+    aktiebolag: "Aktiebolag (AB)",
+    ekonomisk_forening: "Ekonomisk förening",
+    ideell_forening: "Ideell förening",
+    planning: "Planerar att starta",
+  },
+  company_age: {
+    _title: "Företagets ålder",
+    not_started: "Inte startat än",
+    less_1y: "Mindre än 1 år",
+    "1_3y": "1-3 år",
+    "3_5y": "3-5 år",
+    over_5y: "Mer än 5 år",
+  },
+  employees: {
+    _title: "Anställda",
+    solo: "0 (solo)",
+    micro: "1-9",
+    small: "10-49",
+    medium: "50-249",
+    large: "250+",
+  },
+  region: {
+    _title: "Län",
+    stockholm: "Stockholm", vastra_gotaland: "Västra Götaland",
+    skane: "Skåne", ostergotland: "Östergötland", uppsala: "Uppsala",
+    jonkoping: "Jönköping", halland: "Halland", orebro: "Örebro",
+    sodermanland: "Södermanland", dalarna: "Dalarna", gavleborg: "Gävleborg",
+    varmland: "Värmland", vastmanland: "Västmanland", norrbotten: "Norrbotten",
+    vasterbotten: "Västerbotten", vasternorrland: "Västernorrland",
+    jamtland: "Jämtland", kalmar: "Kalmar", kronoberg: "Kronoberg",
+    blekinge: "Blekinge", gotland: "Gotland",
+  },
+  revenue: {
+    _title: "Omsättning",
+    zero: "Ingen omsättning",
+    under_300k: "Under 300 000 kr",
+    "300k_600k": "300-600 000 kr",
+    "600k_3m": "600 000-3 mkr",
+    "3m_10m": "3-10 mkr",
+    "10m_50m": "10-50 mkr",
+    over_50m: "Över 50 mkr",
+    prefer_not_to_say: "Ej angivet",
+    under_500k: "Under 500 000 kr",
+    "500k_3m": "500 000-3 mkr",
+  },
+  industry: {
+    _title: "Bransch",
+    tech: "Tech/IT", ecommerce: "Handel", manufacturing: "Tillverkning",
+    construction: "Bygg", cleaning_facility: "Städ/Fastighet",
+    hospitality: "Restaurang", health: "Hälsa/Vård",
+    beauty_personal: "Skönhet", transport: "Transport",
+    automotive: "Fordon", consulting: "Konsult", creative: "Kreativ/Kultur",
+    agriculture: "Jordbruk", energy: "Energi", education: "Utbildning",
+    other: "Annat",
+  },
+  offering_type: {
+    _title: "Erbjudande",
+    physical_products: "Produkter",
+    services: "Tjänster",
+    both: "Både och",
+    unsure: "Osäkert",
+  },
+  needs: {
+    _title: "Behov",
+    investment: "Investering", product_dev: "Produktutveckling",
+    export: "Export", digitalization: "Digitalisering",
+    sustainability: "Hållbarhet", hiring_skills: "Personal",
+    marketing_sales: "Marknadsföring", startup_support: "Starta eget",
+    rnd: "Forskning", premises: "Lokaler", ip_patents: "Patent",
+    finance_liquidity: "Ekonomi", pivot: "Omställning", unsure: "Osäkert",
+  },
+};
+
+function getAnswerLabel(key, value) {
+  const map = QUIZ_LABELS[key];
+  if (!map) return String(value);
+  if (Array.isArray(value)) {
+    return value.map((v) => map[v] || v).join(", ");
+  }
+  return map[value] || String(value);
+}
+
+function CompanyProfile({ quizData }) {
+  if (!quizData?.quiz_answers) return null;
+  const answers = quizData.quiz_answers;
+  const displayFields = ["company_type", "company_age", "employees", "region", "revenue", "industry", "needs", "offering_type"];
+  const hasData = displayFields.some((k) => answers[k]);
+  if (!hasData) return null;
+
+  return (
+    <div style={{
+      background: "rgba(255,255,255,0.02)",
+      border: "1px solid rgba(255,255,255,0.08)",
+      borderRadius: 14, padding: "20px", marginBottom: 24,
+    }}>
+      <div style={{
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        marginBottom: 14,
+      }}>
+        <h3 style={{
+          fontSize: 12, fontWeight: 600, color: "#38bdf8",
+          textTransform: "uppercase", letterSpacing: "1px",
+          margin: 0, fontFamily: "'Space Mono', monospace",
+        }}>Din företagsprofil</h3>
+        {quizData.last_search_at && (
+          <span style={{ fontSize: 11, color: "#475569" }}>
+            Senast sökt: {new Date(quizData.last_search_at).toLocaleDateString("sv-SE")}
+          </span>
+        )}
+      </div>
+      <div style={{
+        display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+        gap: 10,
+      }}>
+        {displayFields.map((key) => {
+          if (!answers[key]) return null;
+          const label = QUIZ_LABELS[key]?._title || key;
+          const value = getAnswerLabel(key, answers[key]);
+          return (
+            <div key={key} style={{
+              padding: "10px 12px", borderRadius: 8,
+              background: "rgba(255,255,255,0.02)",
+              border: "1px solid rgba(255,255,255,0.05)",
+            }}>
+              <div style={{
+                fontSize: 10, color: "#64748b", textTransform: "uppercase",
+                letterSpacing: "0.5px", marginBottom: 3,
+              }}>{label}</div>
+              <div style={{ fontSize: 13, color: "#cbd5e1", fontWeight: 500 }}>{value}</div>
+            </div>
+          );
+        })}
+        {answers.kommun && answers.kommun !== "prefer_not_to_say" && (
+          <div style={{
+            padding: "10px 12px", borderRadius: 8,
+            background: "rgba(255,255,255,0.02)",
+            border: "1px solid rgba(255,255,255,0.05)",
+          }}>
+            <div style={{
+              fontSize: 10, color: "#64748b", textTransform: "uppercase",
+              letterSpacing: "0.5px", marginBottom: 3,
+            }}>Kommun</div>
+            <div style={{ fontSize: 13, color: "#cbd5e1", fontWeight: 500 }}>{answers.kommun}</div>
+          </div>
+        )}
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <a href="/" style={{
+          fontSize: 12, color: "#38bdf8", textDecoration: "none", fontWeight: 500,
+        }}>Gör en ny sökning med uppdaterad info →</a>
+      </div>
+    </div>
+  );
+}
+
+function SearchHistoryCard({ search, onDelete, onReuse }) {
+  const [expanded, setExpanded] = useState(false);
+  const answers = search.answers || {};
+  const result = search.result || {};
+  const grantCount = result.benefits?.length || 0;
+  const date = new Date(search.created_at).toLocaleDateString("sv-SE", {
+    year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+
+  return (
+    <div style={{
+      background: "rgba(255,255,255,0.02)",
+      border: "1px solid rgba(255,255,255,0.06)",
+      borderRadius: 10, padding: "14px 16px", marginBottom: 8,
+    }}>
+      <div
+        onClick={() => setExpanded(!expanded)}
+        style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+      >
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>
+            {getAnswerLabel("industry", answers.industry) || "Sökning"}{" "}
+            {answers.region && <span style={{ color: "#64748b", fontWeight: 400 }}>i {getAnswerLabel("region", answers.region)}</span>}
+          </div>
+          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+            {date} -- {grantCount} bidrag{search.refine_count > 0 ? `, förfinad ${search.refine_count}x` : ""}
+          </div>
+        </div>
+        <span style={{ fontSize: 14, color: "#475569" }}>{expanded ? "▲" : "▼"}</span>
+      </div>
+
+      {expanded && (
+        <div style={{ marginTop: 12, borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 12 }}>
+          {/* Quick summary */}
+          {result.summary && (
+            <p style={{ fontSize: 13, color: "#94a3b8", margin: "0 0 12px", lineHeight: 1.5 }}>
+              {result.summary}
+            </p>
+          )}
+
+          {/* Top grants from this search */}
+          {result.benefits && result.benefits.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>
+                Bidrag från denna sökning
+              </div>
+              {result.benefits.slice(0, 5).map((b, i) => (
+                <div key={i} style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  padding: "5px 0", borderBottom: "1px solid rgba(255,255,255,0.03)",
+                  fontSize: 12,
+                }}>
+                  <span style={{ color: "#cbd5e1" }}>{b.name}</span>
+                  <span style={{
+                    fontSize: 10, color: b.priority === "high" ? "#10b981" : b.priority === "medium" ? "#60a5fa" : "#64748b",
+                  }}>{b.priority === "high" ? "Hög" : b.priority === "medium" ? "Medel" : "Låg"}</span>
+                </div>
+              ))}
+              {result.benefits.length > 5 && (
+                <div style={{ fontSize: 11, color: "#475569", marginTop: 4 }}>
+                  +{result.benefits.length - 5} till...
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <a
+              href={`/?prefill=history&searchId=${search.id}`}
+              style={{
+                padding: "6px 14px", borderRadius: 8,
+                background: "rgba(56, 189, 248, 0.1)",
+                border: "1px solid rgba(56, 189, 248, 0.2)",
+                color: "#38bdf8", fontSize: 11, fontWeight: 600,
+                textDecoration: "none", fontFamily: "'DM Sans', sans-serif",
+              }}
+            >Sök igen med samma svar</a>
+            <button
+              onClick={() => { if (confirm("Ta bort denna sökning?")) onDelete(search.id); }}
+              style={{
+                padding: "6px 14px", borderRadius: 8,
+                background: "rgba(239, 68, 68, 0.06)",
+                border: "1px solid rgba(239, 68, 68, 0.15)",
+                color: "#ef4444", fontSize: 11, cursor: "pointer",
+                fontFamily: "'DM Sans', sans-serif",
+              }}
+            >Ta bort</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user, profile, loading, signOut } = useAuth();
   const router = useRouter();
   const [grants, setGrants] = useState([]);
   const [filter, setFilter] = useState("all");
   const [loadingGrants, setLoadingGrants] = useState(true);
+  const [quizData, setQuizData] = useState(null);
+  const [searches, setSearches] = useState([]);
+  const [showSearches, setShowSearches] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -308,8 +570,14 @@ export default function Dashboard() {
   const loadGrants = useCallback(async () => {
     if (!user) return;
     setLoadingGrants(true);
-    const data = await getSavedGrants(user.id);
-    setGrants(data);
+    const [grantsData, quizProfile, userSearches] = await Promise.all([
+      getSavedGrants(user.id),
+      getQuizAnswers(user.id),
+      getUserSearches(user.id),
+    ]);
+    setGrants(grantsData);
+    setQuizData(quizProfile);
+    setSearches(userSearches);
     setLoadingGrants(false);
   }, [user]);
 
@@ -320,6 +588,11 @@ export default function Dashboard() {
   const handleDelete = async (grantId) => {
     await deleteSavedGrant(grantId);
     setGrants((prev) => prev.filter((g) => g.id !== grantId));
+  };
+
+  const handleDeleteSearch = async (searchId) => {
+    await deleteUserSearch(searchId);
+    setSearches((prev) => prev.filter((s) => s.id !== searchId));
   };
 
   const handleExportCSV = () => {
@@ -472,6 +745,43 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
+
+          {/* Company profile */}
+          <CompanyProfile quizData={quizData} />
+
+          {/* Search history */}
+          {searches.length > 0 && (
+            <div style={{ marginBottom: 24 }}>
+              <button
+                onClick={() => setShowSearches(!showSearches)}
+                style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  width: "100%", padding: "14px 16px", borderRadius: 12,
+                  background: "rgba(167, 139, 250, 0.04)",
+                  border: "1px solid rgba(167, 139, 250, 0.15)",
+                  cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                }}
+              >
+                <span style={{
+                  fontSize: 12, fontWeight: 600, color: "#a78bfa",
+                  textTransform: "uppercase", letterSpacing: "1px",
+                  fontFamily: "'Space Mono', monospace",
+                }}>Tidigare sökningar ({searches.length})</span>
+                <span style={{ fontSize: 14, color: "#475569" }}>{showSearches ? "▲" : "▼"}</span>
+              </button>
+              {showSearches && (
+                <div style={{ marginTop: 10 }}>
+                  {searches.map((s) => (
+                    <SearchHistoryCard
+                      key={s.id}
+                      search={s}
+                      onDelete={handleDeleteSearch}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Upcoming deadlines */}
           {upcomingDeadlines.length > 0 && (
