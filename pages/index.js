@@ -9,6 +9,7 @@ import {
   deleteFeedback,
   getSearchHistory,
   deleteSearch,
+  clearAllSearches,
 } from "../lib/supabase";
 import { resultToText, copyToClipboard, downloadAsFile, downloadAsPDF } from "../lib/export";
 
@@ -783,6 +784,14 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
     refreshHistory();
   };
 
+  const handleClearAllHistory = async () => {
+    if (sessionId) {
+      await clearAllSearches(sessionId);
+      setHistory([]);
+      setShowHistory(false);
+    }
+  };
+
   // Merge saved grants into result for exports
   const exportResult = savedGrants.length > 0
     ? { ...result, benefits: [...savedGrants, ...(result?.benefits || [])] }
@@ -1016,6 +1025,9 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                         }}
                       >Dölj ✕</button>
                     </div>
+                    <p style={{ fontSize: 11, color: "#475569", margin: "0 0 12px", lineHeight: 1.4 }}>
+                      Sparas anonymt i din webbläsare. Ingen personlig data lagras.
+                    </p>
                     {history.map((entry) => (
                       <div
                         key={entry.id}
@@ -1068,6 +1080,26 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                         </div>
                       </div>
                     ))}
+                    <button
+                      onClick={handleClearAllHistory}
+                      style={{
+                        marginTop: 8, width: "100%",
+                        background: "rgba(239, 68, 68, 0.06)",
+                        border: "1px solid rgba(239, 68, 68, 0.15)",
+                        borderRadius: 10, padding: "10px",
+                        color: "#ef4444", fontSize: 12, fontWeight: 500,
+                        cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                        transition: "all 0.2s",
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.background = "rgba(239, 68, 68, 0.12)";
+                        e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.3)";
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.background = "rgba(239, 68, 68, 0.06)";
+                        e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.15)";
+                      }}
+                    >Rensa all historik</button>
                   </div>
                 )}
               </div>
