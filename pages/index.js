@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Head from "next/head";
 import { QUIZ_CATEGORIES } from "../components/questions";
+import { KOMMUNER_BY_LAN } from "../components/kommuner";
 import { useAuth } from "../lib/auth";
 import { saveGrant } from "../lib/dashboard";
 import {
@@ -359,6 +360,8 @@ export default function Home() {
   const [savedGrants, setSavedGrants] = useState([]); // grants user marked "yes" across refines
   const [usageInfo, setUsageInfo] = useState(null); // { used, limit }
   const [dailyLimitHit, setDailyLimitHit] = useState(null); // limit error message
+  const [kommun, setKommun] = useState(null); // follow-up: which municipality
+  const [showKommunPrompt, setShowKommunPrompt] = useState(true); // show the kommun question
   const resultRef = useRef(null);
 
   const categories = QUIZ_CATEGORIES;
@@ -449,7 +452,7 @@ export default function Home() {
     }
   };
 
-  const buildPrompt = (finalAnswers) => {
+  const buildPrompt = (finalAnswers, extraKommun) => {
     const companyTypeMap = {
       enskild_firma: "enskild firma",
       handelsbolag: "handelsbolag (HB)",
@@ -504,11 +507,13 @@ export default function Home() {
     };
     const revenueMap = {
       zero: "ingen omsättning ännu",
-      under_500k: "under 500 000 kr",
-      "500k_3m": "500 000 - 3 mkr",
+      under_300k: "under 300 000 kr (litet/hobby-företag)",
+      "300k_600k": "300 000 - 600 000 kr (etablerat småföretag)",
+      "600k_3m": "600 000 - 3 mkr",
       "3m_10m": "3-10 mkr",
       "10m_50m": "10-50 mkr",
       over_50m: "över 50 mkr",
+      prefer_not_to_say: "vill inte ange omsättning",
     };
     const industryMap = {
       tech: "Tech/IT/SaaS", ecommerce: "Handel/E-commerce",
@@ -571,7 +576,7 @@ Baserat på detta företags situation, ge en KOMPLETT lista med relevanta stöd,
 Bolagsform: ${companyTypeMap[finalAnswers.company_type] || "ej angivet"}
 Företaget startades: ${companyAgeMap[finalAnswers.company_age] || "ej angivet"}
 Antal anställda: ${employeesMap[finalAnswers.employees] || "ej angivet"}
-Län: ${regionMap[finalAnswers.region] || "ej angivet"}
+Län: ${regionMap[finalAnswers.region] || "ej angivet"}${extraKommun && extraKommun !== "prefer_not_to_say" ? `\nKommun: ${extraKommun}` : ""}
 Behov: ${needs}
 Årsomsättning: ${revenueMap[finalAnswers.revenue] || "ej angivet"}
 Bransch: ${industries}
@@ -586,6 +591,9 @@ VIKTIGT:
 - Tänk även på Försäkringskassans starta-eget-bidrag om personen planerar att starta (kan vara aktuellt för den som uppfyller Försäkringskassans villkor)
 - VIKTIGT om företagets ålder: Starta-eget-bidrag (t.ex. från Arbetsförmedlingen) kan BARA sökas INNAN man registrerar företaget. Om företaget redan är startat, rekommendera INTE starta-eget-bidrag — nämn istället att det tyvärr inte längre är aktuellt.
 - Om företaget startades för mer än 3 år sedan, fokusera på tillväxt- och utvecklingsbidrag istället för nystartsstöd.
+- Om en kommun anges: Arbetsförmedlingens lönestöd och kompetensförsörjningsstöd kan variera beroende på kommun — ta hänsyn till detta. Kommunens eget näringslivsstöd och lokala utvecklingsprogram kan också vara relevanta.
+- Om omsättning anges som "under 300 000 kr" — detta kan vara ett hobbyföretag eller nystartat. Fokusera på nystartsstöd, mikrobidrag och grundläggande rådgivning.
+- Om omsättning är "300 000 - 600 000 kr" — detta är ett litet men etablerat företag. Inkludera stöd för tillväxt och expansion.
 
 KRITISKT — ALDRIG lämna användaren utan hopp:
 - Om få bidrag matchar exakt, inkludera ÄNDÅ närliggande stöd som kan bli aktuella med mindre justeringar
@@ -676,7 +684,7 @@ VIKTIGT om recommendations-fältet:
     setRefineCount(0);
     transition(() => setStep(categories.length));
 
-    const contextPrompt = buildPrompt(finalAnswers);
+    const contextPrompt = buildPrompt(finalAnswers, kommun);
 
     try {
       const parsed = await callAPI(`${contextPrompt}\n\n${jsonInstructions}`);
@@ -734,7 +742,7 @@ VIKTIGT om recommendations-fältet:
     setShowRefineDialog(false);
     setError(null);
 
-    const contextPrompt = buildPrompt(answers);
+    const contextPrompt = buildPrompt(answers, kommun);
 
     let feedbackPrompt = `${contextPrompt}
 
@@ -822,6 +830,8 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
       setSearchId(null);
       setShowHistory(false);
       setSavedGrants([]);
+      setKommun(null);
+      setShowKommunPrompt(true);
     });
   };
 
@@ -1431,6 +1441,105 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                     </div>
                   )}
                 </div>
+
+                {/* Kommun follow-up question */}
+                {showKommunPrompt && !kommun && answers.region && KOMMUNER_BY_LAN[answers.region] && (
+                  <div style={{
+                    background: "rgba(56, 189, 248, 0.05)",
+                    border: "1px solid rgba(56, 189, 248, 0.15)",
+                    borderRadius: 14, padding: "16px 20px", marginBottom: 20,
+                  }}>
+                    <div style={{
+                      display: "flex", justifyContent: "space-between", alignItems: "flex-start",
+                      marginBottom: 10,
+                    }}>
+                      <div>
+                        <div style={{
+                          fontSize: 10, color: "#38bdf8", textTransform: "uppercase",
+                          letterSpacing: "0.5px", fontWeight: 600, marginBottom: 4,
+                        }}>Valfri uppföljningsfråga</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "#e2e8f0" }}>
+                          Vilken kommun är företaget i?
+                        </div>
+                        <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                          Vissa bidrag (t.ex. från Arbetsförmedlingen) varierar beroende på kommun
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setShowKommunPrompt(false)}
+                        style={{
+                          background: "none", border: "none", color: "#475569",
+                          cursor: "pointer", fontSize: 16, padding: "2px 6px",
+                        }}
+                        title="Stäng"
+                      >x</button>
+                    </div>
+                    <div style={{
+                      display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 180,
+                      overflowY: "auto", paddingRight: 4,
+                    }}>
+                      {KOMMUNER_BY_LAN[answers.region].map((k) => (
+                        <button
+                          key={k}
+                          onClick={() => {
+                            setKommun(k);
+                            setShowKommunPrompt(false);
+                          }}
+                          style={{
+                            padding: "6px 12px", borderRadius: 8,
+                            background: "rgba(255,255,255,0.04)",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            color: "#cbd5e1", fontSize: 12, cursor: "pointer",
+                            fontFamily: "'DM Sans', sans-serif",
+                            transition: "all 0.2s",
+                          }}
+                          onMouseOver={(e) => {
+                            e.currentTarget.style.background = "rgba(56, 189, 248, 0.1)";
+                            e.currentTarget.style.borderColor = "rgba(56, 189, 248, 0.3)";
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                            e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+                          }}
+                        >{k}</button>
+                      ))}
+                      <button
+                        onClick={() => {
+                          setKommun("prefer_not_to_say");
+                          setShowKommunPrompt(false);
+                        }}
+                        style={{
+                          padding: "6px 12px", borderRadius: 8,
+                          background: "rgba(255,255,255,0.02)",
+                          border: "1px dashed rgba(255,255,255,0.1)",
+                          color: "#64748b", fontSize: 12, cursor: "pointer",
+                          fontFamily: "'DM Sans', sans-serif", fontStyle: "italic",
+                        }}
+                      >Vill inte säga</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Kommun selected badge */}
+                {kommun && kommun !== "prefer_not_to_say" && (
+                  <div style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    padding: "6px 14px", borderRadius: 20, marginBottom: 16,
+                    fontSize: 12, fontWeight: 500,
+                    background: "rgba(56, 189, 248, 0.08)",
+                    color: "#38bdf8",
+                    border: "1px solid rgba(56, 189, 248, 0.2)",
+                  }}>
+                    Kommun: {kommun}
+                    <button
+                      onClick={() => { setKommun(null); setShowKommunPrompt(true); }}
+                      style={{
+                        background: "none", border: "none", color: "#64748b",
+                        cursor: "pointer", fontSize: 14, padding: 0,
+                      }}
+                    >x</button>
+                  </div>
+                )}
 
                 {/* Instruction */}
                 <div style={{
