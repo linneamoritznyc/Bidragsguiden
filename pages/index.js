@@ -336,6 +336,8 @@ export default function Home() {
   const [savedProfile, setSavedProfile] = useState(null); // saved quiz answers from profile
   const [showPrefillBanner, setShowPrefillBanner] = useState(false);
   const resultRef = useRef(null);
+  const prefetchRef = useRef(null); // { promise, baseAnswers }
+  const [prefetching, setPrefetching] = useState(false);
 
   const categories = QUIZ_CATEGORIES;
 
@@ -397,6 +399,10 @@ export default function Home() {
     const newAnswers = { ...answers, [categoryId]: value };
     setAnswers(newAnswers);
     if (step < categories.length - 1) {
+      // Start AI prefetch when moving to the last question
+      if (step === categories.length - 2) {
+        startPrefetch(newAnswers);
+      }
       transition(() => setStep(step + 1));
     } else {
       fetchResults(newAnswers);
@@ -408,6 +414,10 @@ export default function Home() {
     setAnswers(newAnswers);
     setMultiSelect([]);
     if (step < categories.length - 1) {
+      // Start AI prefetch when moving to the last question
+      if (step === categories.length - 2) {
+        startPrefetch(newAnswers);
+      }
       transition(() => setStep(step + 1));
     } else {
       fetchResults(newAnswers);
@@ -701,18 +711,73 @@ VIKTIGT om follow_up_questions:
     return JSON.parse(clean);
   };
 
+  // Pre-fetch: fire the API call early while user answers the last question
+  const startPrefetch = (partialAnswers) => {
+    prefetchRef.current = null;
+    setPrefetching(true);
+    const prefetchAnswers = { ...partialAnswers, offering_type: "both" };
+    const contextPrompt = buildPrompt(prefetchAnswers, kommun);
+    const promise = fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: `${contextPrompt}\n\n${jsonInstructions}`,
+        sessionId: sessionId || undefined,
+        userId: user?.id || undefined,
+      }),
+    })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        const data = await response.json();
+        const text = data.content
+          .map((item) => (item.type === "text" ? item.text : ""))
+          .filter(Boolean)
+          .join("\n");
+        const clean = text.replace(/```json|```/g, "").trim();
+        return { parsed: JSON.parse(clean), _usage: data._usage };
+      })
+      .catch(() => null);
+    prefetchRef.current = { promise, baseAnswers: { ...partialAnswers } };
+  };
+
   const fetchResults = async (finalAnswers) => {
     setLoading(true);
+    setPrefetching(false);
     setError(null);
     setDailyLimitHit(null);
     setFeedback({});
     setRefineCount(0);
     transition(() => setStep(categories.length));
 
-    const contextPrompt = buildPrompt(finalAnswers, kommun);
-
     try {
-      const parsed = await callAPI(`${contextPrompt}\n\n${jsonInstructions}`);
+      let parsed;
+
+      // Check if we have a valid prefetch result
+      const prefetch = prefetchRef.current;
+      prefetchRef.current = null;
+
+      if (prefetch) {
+        // Verify that the base answers haven't changed (user didn't go back)
+        const baseMatch = Object.keys(prefetch.baseAnswers).every(
+          (key) => JSON.stringify(prefetch.baseAnswers[key]) === JSON.stringify(finalAnswers[key])
+        );
+        if (baseMatch) {
+          const prefetchResult = await prefetch.promise;
+          if (prefetchResult) {
+            parsed = prefetchResult.parsed;
+            if (prefetchResult._usage) {
+              setUsageInfo(prefetchResult._usage);
+            }
+          }
+        }
+      }
+
+      // No valid prefetch — make a normal API call
+      if (!parsed) {
+        const contextPrompt = buildPrompt(finalAnswers, kommun);
+        parsed = await callAPI(`${contextPrompt}\n\n${jsonInstructions}`);
+      }
+
       setResult(parsed);
 
       // Save to Supabase (anonymous session)
@@ -1373,6 +1438,20 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                     >Gå vidare →</button>
                   )}
                 </div>
+                {/* Prefetch indicator on last question */}
+                {prefetching && step === categories.length - 1 && (
+                  <div style={{
+                    marginTop: 16, display: "flex", alignItems: "center", gap: 8,
+                    fontSize: 12, color: "#64748b",
+                  }}>
+                    <div style={{
+                      width: 6, height: 6, borderRadius: "50%",
+                      background: "#38bdf8", animation: "prefetchPulse 1.5s infinite",
+                    }} />
+                    Resultaten förbereds i bakgrunden...
+                    <style>{`@keyframes prefetchPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }`}</style>
+                  </div>
+                )}
               </div>
             )}
 
