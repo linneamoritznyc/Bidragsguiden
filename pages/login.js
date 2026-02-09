@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { useAuth } from "../lib/auth";
@@ -6,12 +6,21 @@ import { useAuth } from "../lib/auth";
 export default function Login() {
   const { user, loading, signInWithGoogle } = useAuth();
   const router = useRouter();
+  const [rememberMe, setRememberMe] = useState(true);
 
   useEffect(() => {
     if (!loading && user) {
       router.replace("/dashboard");
     }
   }, [user, loading, router]);
+
+  const handleLogin = async () => {
+    // Save remember-me preference before redirecting to Google
+    if (typeof window !== "undefined") {
+      localStorage.setItem("bg_remember_me", rememberMe ? "true" : "false");
+    }
+    await signInWithGoogle();
+  };
 
   if (loading) {
     return (
@@ -29,7 +38,7 @@ export default function Login() {
   return (
     <>
       <Head>
-        <title>Logga in — Bidragsguiden</title>
+        <title>Logga in -- Bidragsguiden</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
       </Head>
@@ -73,7 +82,7 @@ export default function Login() {
 
           {/* Google sign-in button */}
           <button
-            onClick={signInWithGoogle}
+            onClick={handleLogin}
             style={{
               width: "100%", padding: "14px 24px",
               background: "#fff", color: "#1f2937",
@@ -102,8 +111,23 @@ export default function Login() {
             Logga in med Google
           </button>
 
+          {/* Remember me checkbox */}
+          <label style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            gap: 8, marginTop: 16, cursor: "pointer",
+            fontSize: 14, color: "#94a3b8",
+          }}>
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              style={{ cursor: "pointer", accentColor: "#38bdf8" }}
+            />
+            Kom ihåg mig
+          </label>
+
           <div style={{
-            marginTop: 24, padding: "16px", borderRadius: 10,
+            marginTop: 20, padding: "16px", borderRadius: 10,
             background: "rgba(255,255,255,0.02)",
             border: "1px solid rgba(255,255,255,0.06)",
             fontSize: 12, color: "#475569", lineHeight: 1.5,
@@ -123,7 +147,7 @@ export default function Login() {
               fontSize: 13, color: "#64748b", textDecoration: "none",
             }}
           >
-            ← Tillbaka till quizet (utan konto)
+            Tillbaka till quizet (utan konto)
           </a>
         </div>
       </div>
