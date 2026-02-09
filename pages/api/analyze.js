@@ -99,7 +99,7 @@ async function checkAndRecordUsage({ sessionId, userId, ip }) {
 }
 
 // --- Anthropic API call with retry ---
-async function callAnthropicWithRetry(apiKey, prompt, retries = 2) {
+async function callAnthropicWithRetry(apiKey, prompt, { retries = 2, maxTokens = 4000 } = {}) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -111,7 +111,7 @@ async function callAnthropicWithRetry(apiKey, prompt, retries = 2) {
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
-          max_tokens: 4000,
+          max_tokens: maxTokens,
           messages: [{ role: "user", content: prompt }],
         }),
       });
@@ -170,7 +170,7 @@ export default async function handler(req, res) {
     });
   }
 
-  const { prompt, sessionId, userId } = req.body;
+  const { prompt, sessionId, userId, quickQuestion } = req.body;
   if (!prompt || typeof prompt !== "string") {
     return res.status(400).json({ error: "Missing or invalid prompt" });
   }
@@ -179,7 +179,23 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Prompt too long" });
   }
 
-  // Check daily usage limit
+  // Quick questions (per-grant Q&A) skip usage tracking but still rate-limit
+  if (quickQuestion) {
+    try {
+      const result = await callAnthropicWithRetry(apiKey, prompt, { maxTokens: 500 });
+
+      if (result.error) {
+        return res.status(result.status || 500).json({ error: "AI service error" });
+      }
+
+      return res.status(200).json(result.data);
+    } catch (err) {
+      console.error("Quick question error:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
+  // Check daily usage limit (full searches only)
   const usage = await checkAndRecordUsage({ sessionId, userId, ip });
 
   if (!usage.allowed) {

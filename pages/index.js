@@ -3,7 +3,7 @@ import Head from "next/head";
 import { QUIZ_CATEGORIES } from "../components/questions";
 import { KOMMUNER_BY_LAN } from "../components/kommuner";
 import { useAuth } from "../lib/auth";
-import { saveGrant, saveQuizAnswers, getQuizAnswers, saveUserSearch } from "../lib/dashboard";
+import { saveGrant, saveQuizAnswers, getQuizAnswers, saveUserSearch, deleteSavedGrantByName } from "../lib/dashboard";
 import {
   getSession,
   saveSearch,
@@ -30,9 +30,25 @@ const LoadingDots = () => {
 };
 
 // Single grant card with eligibility toggle and feedback
-function GrantCard({ benefit, index, feedback, onFeedbackChange, saved }) {
+function GrantCard({ benefit, index, feedback, onFeedbackChange, saved, onDismiss, onAskQuestion }) {
   const [expanded, setExpanded] = useState(false);
   const [reasonInput, setReasonInput] = useState(feedback?.reason || "");
+  const [questionInput, setQuestionInput] = useState("");
+  const [asking, setAsking] = useState(false);
+  const [answer, setAnswer] = useState(benefit.user_answer || null);
+
+  const handleAsk = async () => {
+    if (!questionInput.trim() || asking) return;
+    setAsking(true);
+    try {
+      const result = await onAskQuestion(benefit, questionInput.trim());
+      setAnswer(result);
+    } catch {
+      setAnswer("Kunde inte hämta svar just nu. Försök igen.");
+    } finally {
+      setAsking(false);
+    }
+  };
 
   const priorityColors = {
     high: { bg: "rgba(16, 185, 129, 0.15)", border: "rgba(16, 185, 129, 0.4)", text: "#10b981", label: "Hög relevans" },
@@ -179,8 +195,8 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange, saved }) {
         }}>Läs mer på {benefit.agency} →</a>
       )}
 
-      {/* AI answer to user's question — prominent so user can decide */}
-      {benefit.user_answer && (
+      {/* AI answer to user's question */}
+      {answer && (
         <div style={{
           padding: "14px 16px", borderRadius: 10, marginBottom: 12,
           background: "rgba(56, 189, 248, 0.08)",
@@ -194,27 +210,58 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange, saved }) {
             Svar på din fråga
           </div>
           <div style={{ fontSize: 14, color: "#e2e8f0", lineHeight: 1.7 }}>
-            {benefit.user_answer}
+            {answer}
           </div>
         </div>
       )}
 
-      {/* Eligible / Not Eligible buttons */}
+      {/* Question input - always visible */}
       <div style={{
         borderTop: "1px solid rgba(255,255,255,0.06)",
         paddingTop: 12, marginTop: 4,
       }}>
-        <div style={{ fontSize: 11, color: "#475569", marginBottom: 8 }}>Stämmer detta för dig?</div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+          <input
+            value={questionInput}
+            onChange={(e) => setQuestionInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleAsk(); }}
+            placeholder="Ställ en fråga om detta bidrag..."
+            disabled={asking}
+            style={{
+              flex: 1, padding: "10px 12px", borderRadius: 8,
+              border: "1px solid rgba(56, 189, 248, 0.2)",
+              background: "rgba(255,255,255,0.03)", color: "#e2e8f0",
+              fontSize: 13, fontFamily: "'DM Sans', sans-serif",
+              outline: "none",
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(56, 189, 248, 0.5)"; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(56, 189, 248, 0.2)"; }}
+          />
+          <button
+            onClick={handleAsk}
+            disabled={!questionInput.trim() || asking}
+            style={{
+              padding: "10px 16px", borderRadius: 8,
+              background: questionInput.trim() && !asking
+                ? "linear-gradient(135deg, #38bdf8, #10b981)"
+                : "rgba(255,255,255,0.05)",
+              color: questionInput.trim() && !asking ? "#0a1628" : "#475569",
+              border: "none", fontSize: 13, fontWeight: 600,
+              cursor: questionInput.trim() && !asking ? "pointer" : "default",
+              fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
+              whiteSpace: "nowrap",
+            }}
+          >{asking ? "Tänker..." : "Fråga"}</button>
+        </div>
+
+        {/* Feedback: Aktuellt / Inte aktuellt */}
         <div style={{ display: "flex", gap: 6 }}>
           <button
             onClick={() => {
               if (eligibility === "yes") {
                 onFeedbackChange(index, { eligible: undefined, reason: "" });
-                setReasonInput("");
-                setExpanded(false);
               } else {
-                onFeedbackChange(index, { eligible: "yes", reason: reasonInput });
-                setExpanded(true);
+                onFeedbackChange(index, { eligible: "yes", reason: "" });
               }
             }}
             style={{
@@ -232,11 +279,8 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange, saved }) {
             onClick={() => {
               if (eligibility === "unsure") {
                 onFeedbackChange(index, { eligible: undefined, reason: "" });
-                setReasonInput("");
-                setExpanded(false);
               } else {
-                onFeedbackChange(index, { eligible: "unsure", reason: reasonInput });
-                setExpanded(true);
+                onFeedbackChange(index, { eligible: "unsure", reason: "" });
               }
             }}
             style={{
@@ -252,53 +296,20 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange, saved }) {
           </button>
           <button
             onClick={() => {
-              if (eligibility === "no") {
-                onFeedbackChange(index, { eligible: undefined, reason: "" });
-                setReasonInput("");
-              } else {
-                onFeedbackChange(index, { eligible: "no", reason: reasonInput });
-                setExpanded(true);
-              }
+              if (onDismiss) onDismiss(index, benefit.name);
             }}
             style={{
               flex: 1, padding: "10px", borderRadius: 8, border: "none",
               fontSize: 12, fontWeight: 600, cursor: "pointer",
               fontFamily: "'DM Sans', sans-serif",
-              background: eligibility === "no" ? "rgba(239, 68, 68, 0.2)" : "rgba(255,255,255,0.04)",
-              color: eligibility === "no" ? "#ef4444" : "#64748b",
+              background: "rgba(255,255,255,0.04)",
+              color: "#64748b",
               transition: "all 0.2s",
             }}
           >
             Inte aktuellt
           </button>
         </div>
-
-        {/* Comment input - shown when any feedback button is active */}
-        {eligibility && expanded && (
-          <div style={{ marginTop: 10, animation: "fadeSlide 0.3s ease" }}>
-            <textarea
-              value={reasonInput}
-              onChange={(e) => {
-                setReasonInput(e.target.value);
-                onFeedbackChange(index, { eligible, reason: e.target.value });
-              }}
-              placeholder={
-                eligibility === "yes"
-                  ? "Valfritt: Ställ en fråga, t.ex. 'Gäller detta enskild firma?' eller 'Vilka dokument behövs egentligen?'"
-                  : eligibility === "unsure"
-                    ? "Valfritt: Vad undrar du? T.ex. 'Vet inte om vi uppfyller storlekskravet' eller 'Gäller det min bransch?'"
-                    : "Valfritt: Varför passar det inte? T.ex. 'Vi har för få anställda' eller 'Vi är inte i rätt län'"
-              }
-              style={{
-                width: "100%", minHeight: 60, padding: "10px 12px",
-                borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)",
-                background: "rgba(255,255,255,0.03)", color: "#cbd5e1",
-                fontSize: 13, fontFamily: "'DM Sans', sans-serif",
-                resize: "vertical", lineHeight: 1.4,
-              }}
-            />
-          </div>
-        )}
       </div>
     </div>
   );
@@ -335,6 +346,7 @@ export default function Home() {
   const [showKommunPrompt, setShowKommunPrompt] = useState(true); // show the kommun question
   const [savedProfile, setSavedProfile] = useState(null); // saved quiz answers from profile
   const [showPrefillBanner, setShowPrefillBanner] = useState(false);
+  const [dismissedGrants, setDismissedGrants] = useState(new Set()); // grant names dismissed via "Inte aktuellt"
   const resultRef = useRef(null);
   const prefetchRef = useRef(null); // { promise, baseAnswers }
   const [prefetching, setPrefetching] = useState(false);
@@ -449,6 +461,54 @@ export default function Home() {
         deleteFeedback({ searchId, benefitIndex: index });
       }
     }
+  };
+
+  // Dismiss a grant: hide it and remove from dashboard
+  const handleDismissGrant = (index, grantName) => {
+    setDismissedGrants((prev) => new Set([...prev, grantName]));
+    handleFeedbackChange(index, { eligible: "no", reason: "" });
+    // Remove from dashboard if user is logged in
+    if (user?.id && grantName) {
+      deleteSavedGrantByName({ userId: user.id, grantName }).catch(() => {});
+    }
+  };
+
+  // Instant question about a specific grant
+  const askGrantQuestion = async (grant, question) => {
+    const prompt = `Du är en expert på svenska företagsstöd och bidrag.
+
+Bidraget: ${grant.name}
+Myndighet: ${grant.agency || "okänd"}
+Beskrivning: ${grant.description || ""}
+Vem kan söka: ${grant.eligibility_summary || ""}
+Belopp: ${grant.amount || ""}
+
+Användarens fråga: "${question}"
+
+Svara kort, tydligt och konkret på svenska (2-4 meningar). Ge ett direkt svar -- användaren vill INTE behöva klicka på en länk.
+VIKTIGT: Använd INGA emojis. Svara ENBART med giltig JSON: {"answer": "Ditt svar här"}`;
+
+    const response = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt,
+        sessionId: sessionId || undefined,
+        userId: user?.id || undefined,
+        quickQuestion: true,
+      }),
+    });
+
+    if (!response.ok) throw new Error("Failed");
+
+    const data = await response.json();
+    const text = data.content
+      .map((item) => (item.type === "text" ? item.text : ""))
+      .filter(Boolean)
+      .join("\n");
+    const clean = text.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(clean);
+    return parsed.answer;
   };
 
   const buildPrompt = (finalAnswers, extraKommun) => {
@@ -747,6 +807,7 @@ VIKTIGT om follow_up_questions:
     setDailyLimitHit(null);
     setFeedback({});
     setRefineCount(0);
+    setDismissedGrants(new Set());
     transition(() => setStep(categories.length));
 
     try {
@@ -908,6 +969,7 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
       const parsed = await callAPI(`${feedbackPrompt}\n\n${jsonInstructions}`);
       setResult(parsed);
       setFeedback({});
+      setDismissedGrants(new Set());
       const newRefineCount = refineCount + 1;
       setRefineCount(newRefineCount);
 
@@ -938,6 +1000,7 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
       setSearchId(null);
       setShowHistory(false);
       setSavedGrants([]);
+      setDismissedGrants(new Set());
       setKommun(null);
       setShowKommunPrompt(true);
     });
@@ -1711,8 +1774,9 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                   border: "1px solid rgba(56, 189, 248, 0.1)",
                   fontSize: 13, color: "#64748b", lineHeight: 1.5,
                 }}>
-                  Markera vilka bidrag som passar dig. Skriv gärna frågor i kommentarsfältet — t.ex. "Gäller detta min bolagsform?"
-                  Klicka sedan <strong style={{ color: "#a78bfa" }}>Förfina</strong> så får du svar och bättre rekommendationer.
+                  Ställ frågor direkt på varje bidrag med <strong style={{ color: "#38bdf8" }}>Fråga</strong>-knappen.
+                  Klicka <strong style={{ color: "#ef4444" }}>Inte aktuellt</strong> för att ta bort bidrag som inte passar.
+                  Klicka <strong style={{ color: "#a78bfa" }}>Förfina</strong> längst ner för att få nya rekommendationer.
                 </div>
 
                 <div style={{
@@ -1724,7 +1788,7 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                     textTransform: "uppercase", letterSpacing: "1px",
                     margin: 0, fontFamily: "'Space Mono', monospace",
                   }}>
-                    {(result.benefits?.length || 0) + savedGrants.length} bidrag och stöd{savedGrants.length > 0 ? ` (${savedGrants.length} sparade)` : ""}
+                    {(result.benefits?.filter((b) => !dismissedGrants.has(b.name)).length || 0) + savedGrants.length} bidrag och stöd{savedGrants.length > 0 ? ` (${savedGrants.length} sparade)` : ""}
                   </h3>
                   <span style={{
                     fontSize: 11, color: "#475569", fontStyle: "italic",
@@ -1781,15 +1845,20 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                 )}
 
                 {/* New grant cards from AI */}
-                {result.benefits?.map((benefit, i) => (
-                  <GrantCard
-                    key={`${refineCount}-${i}`}
-                    benefit={benefit}
-                    index={i}
-                    feedback={feedback[i]}
-                    onFeedbackChange={handleFeedbackChange}
-                  />
-                ))}
+                {result.benefits?.filter((b) => !dismissedGrants.has(b.name)).map((benefit, i) => {
+                  const originalIndex = result.benefits.indexOf(benefit);
+                  return (
+                    <GrantCard
+                      key={`${refineCount}-${originalIndex}`}
+                      benefit={benefit}
+                      index={originalIndex}
+                      feedback={feedback[originalIndex]}
+                      onFeedbackChange={handleFeedbackChange}
+                      onDismiss={handleDismissGrant}
+                      onAskQuestion={askGrantQuestion}
+                    />
+                  );
+                })}
 
                 {/* Export buttons */}
                 <div style={{
@@ -1875,10 +1944,10 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                     {result.follow_up_questions && result.follow_up_questions.length > 0 ? (
                       <>
                         <h4 style={{ fontSize: 15, fontWeight: 600, color: "#a78bfa", margin: "0 0 6px" }}>
-                          Vill du veta mer?
+                          Förfina dina resultat
                         </h4>
                         <p style={{ fontSize: 13, color: "#94a3b8", margin: "0 0 14px", lineHeight: 1.5 }}>
-                          Klicka på en fråga för att få bättre rekommendationer.
+                          Svara på en fråga nedan så anpassar vi rekommendationerna.
                         </p>
                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                           {result.follow_up_questions.map((q, i) => (
