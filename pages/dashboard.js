@@ -30,6 +30,43 @@ const STATUS_CONFIG = {
 
 const SIDEBAR_W = 240;
 
+const NEXT_STEPS = {
+  new: { tip: "Läs igenom bidraget och kolla om du uppfyller kraven.", action: "Ändra status till 'Undersöker' när du börjar kolla" },
+  investigating: { tip: "Samla ihop de dokument som krävs och kontrollera alla villkor.", action: "Ändra till 'Ansökan' när du börjar skriva ansökan" },
+  applying: { tip: "Slutför din ansökan och dubbelkolla alla bilagor innan du skickar.", action: "Ändra till 'Ansökt' när du skickat in" },
+  applied: { tip: "Bra jobbat! Nu är det bara att vänta på svar.", action: "Uppdatera till 'Beviljad' eller 'Nekad' när du fått besked" },
+  granted: { tip: "Grattis! Följ villkoren och rapportera enligt krav.", action: "Arkivera när bidraget är slutredovisat" },
+  rejected: { tip: "Kolla om du kan söka igen nästa period eller hitta alternativ.", action: "Gör ett nytt quiz för att hitta fler bidrag" },
+  archived: { tip: "Detta bidrag är arkiverat.", action: "" },
+};
+
+const RESOURCES = [
+  { category: "Statliga myndigheter", links: [
+    { name: "Tillväxtverket", url: "https://tillvaxtverket.se/bidrag", desc: "Regionalt investeringsstöd, konsultcheckar, EU-fonder" },
+    { name: "Vinnova", url: "https://vinnova.se/sok-finansiering", desc: "Innovationsbidrag, förstudier, samverkansprojekt" },
+    { name: "Energimyndigheten", url: "https://energimyndigheten.se/forskning-innovation", desc: "Klimatpremien, energieffektivisering, Industriklivet" },
+    { name: "Naturvårdsverket / Klimatklivet", url: "https://naturvardsverket.se/klimatklivet", desc: "Investeringsstöd för lokala klimatåtgärder" },
+    { name: "Jordbruksverket", url: "https://jordbruksverket.se/stod", desc: "Jordbruk, landsbygdsutveckling, livsmedel" },
+    { name: "Arbetsförmedlingen", url: "https://arbetsformedlingen.se/for-arbetsgivare/stod-och-bidrag", desc: "Nystartsjobb, lönebidrag, starta eget-bidrag" },
+  ]},
+  { category: "Rådgivning och stöd", links: [
+    { name: "Almi", url: "https://almi.se", desc: "Företagslån, rådgivning, mentorskap, innovationslån" },
+    { name: "Verksamt.se", url: "https://verksamt.se", desc: "Samlad info om att starta och driva företag" },
+    { name: "NyföretagarCentrum", url: "https://nyforetagarcentrum.se", desc: "Gratis rådgivning för nya företagare" },
+    { name: "Business Sweden", url: "https://business-sweden.com", desc: "Exportstöd, internationaliseringscheckar" },
+  ]},
+  { category: "EU-fonder", links: [
+    { name: "Horizon Europe", url: "https://ec.europa.eu/info/horizon-europe", desc: "EU:s största forsknings- och innovationsprogram" },
+    { name: "EIC Accelerator", url: "https://eic.ec.europa.eu", desc: "Bidrag + investering för innovativa SME:s" },
+    { name: "EU-programguiden", url: "https://tillvaxtverket.se/eu-program", desc: "Tillväxtverkets guide till EU-fonder i Sverige" },
+  ]},
+  { category: "Skattelättnader", links: [
+    { name: "Växastödet (Skatteverket)", url: "https://skatteverket.se/foretag/arbetsgivare/vaxastod", desc: "Halverad arbetsgivaravgift för enskild firma med första anställd" },
+    { name: "FoU-avdrag", url: "https://skatteverket.se/foretag/arbetsgivare/socialavgifter/nedsattningfou", desc: "Sänkt arbetsgivaravgift för forskning och utveckling" },
+    { name: "RUT / ROT", url: "https://skatteverket.se/privat/fastigheterochbostad/rotochrutarbete", desc: "Skattereduktion för hushålls- och byggtjänster" },
+  ]},
+];
+
 // --- Sub-components ---
 
 function GrantCard({ grant, onUpdate, onDelete, userId }) {
@@ -110,6 +147,19 @@ function GrantCard({ grant, onUpdate, onDelete, userId }) {
         <div style={{ padding: "0 16px 16px", borderTop: "1px solid #f1f5f9" }}>
           {grantData.description && (
             <p style={{ fontSize: 13, color: "#475569", margin: "12px 0", lineHeight: 1.6 }}>{grantData.description}</p>
+          )}
+          {/* Nästa steg tips */}
+          {NEXT_STEPS[grant.status] && NEXT_STEPS[grant.status].tip && (
+            <div style={{
+              padding: "10px 12px", borderRadius: 4, marginBottom: 12,
+              background: "#eff6ff", border: "1px solid #bfdbfe", borderLeft: "3px solid #3b82f6",
+            }}>
+              <div style={{ fontSize: 10, color: "#3b82f6", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4, fontWeight: 700 }}>Nästa steg</div>
+              <div style={{ fontSize: 12, color: "#1e40af", lineHeight: 1.5 }}>{NEXT_STEPS[grant.status].tip}</div>
+              {NEXT_STEPS[grant.status].action && (
+                <div style={{ fontSize: 11, color: "#64748b", marginTop: 4, fontStyle: "italic" }}>{NEXT_STEPS[grant.status].action}</div>
+              )}
+            </div>
           )}
           {grantData.eligibility_summary && (
             <div style={{ padding: "10px 12px", borderRadius: 4, marginBottom: 12, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
@@ -384,6 +434,7 @@ export default function Dashboard() {
     { key: "grants", label: "Mina bidrag", count: grants.length },
     { key: "searches", label: "Sökhistorik", count: searches.length },
     { key: "profile", label: "Företagsprofil" },
+    { key: "resources", label: "Resurser" },
   ];
 
   const sidebarContent = (
@@ -474,21 +525,90 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {/* Deadline warnings + quick summary */}
+      {(() => {
+        const overdue = grants.filter((g) => g.deadline && new Date(g.deadline) < new Date() && g.status !== "archived" && g.status !== "rejected" && g.status !== "granted");
+        const urgent = upcomingDeadlines.filter((g) => { const d = Math.ceil((new Date(g.deadline) - new Date()) / 86400000); return d <= 7; });
+        const soon = upcomingDeadlines.filter((g) => { const d = Math.ceil((new Date(g.deadline) - new Date()) / 86400000); return d > 7 && d <= 30; });
+
+        return (overdue.length > 0 || urgent.length > 0) ? (
+          <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 6, padding: "14px 16px", marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#dc2626", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>Kräver uppmärksamhet</div>
+            {overdue.map((g) => (
+              <div key={g.id} style={{ fontSize: 12, color: "#991b1b", padding: "3px 0" }}>
+                {g.grant_name} -- deadline har passerat ({new Date(g.deadline).toLocaleDateString("sv-SE")})
+              </div>
+            ))}
+            {urgent.map((g) => {
+              const days = Math.ceil((new Date(g.deadline) - new Date()) / 86400000);
+              return (
+                <div key={g.id} style={{ fontSize: 12, color: "#dc2626", padding: "3px 0" }}>
+                  {g.grant_name} -- {days} {days === 1 ? "dag" : "dagar"} kvar till deadline
+                </div>
+              );
+            })}
+          </div>
+        ) : null;
+      })()}
+
       {/* Upcoming deadlines */}
       {upcomingDeadlines.length > 0 && (
         <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "16px", marginBottom: 20 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 12 }}>Kommande deadlines</div>
           {upcomingDeadlines.map((g) => {
-            const days = Math.ceil((new Date(g.deadline) - new Date()) / (1000 * 60 * 60 * 24));
+            const days = Math.ceil((new Date(g.deadline) - new Date()) / 86400000);
             return (
-              <div key={g.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 13, borderBottom: "1px solid #f8fafc" }}>
-                <span style={{ color: "#334155" }}>{g.grant_name}</span>
-                <span style={{ color: days <= 7 ? "#dc2626" : days <= 30 ? "#d97706" : "#64748b", fontWeight: 600, fontSize: 12 }}>
-                  {new Date(g.deadline).toLocaleDateString("sv-SE")} ({days}d)
-                </span>
+              <div key={g.id} style={{
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                padding: "8px 0", fontSize: 13, borderBottom: "1px solid #f8fafc",
+              }}>
+                <div>
+                  <span style={{ color: "#334155" }}>{g.grant_name}</span>
+                  <span style={{ fontSize: 11, color: "#94a3b8", marginLeft: 8 }}>{STATUS_CONFIG[g.status]?.label}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 3,
+                    background: days <= 7 ? "#fef2f2" : days <= 30 ? "#fffbeb" : "#f8fafc",
+                    color: days <= 7 ? "#dc2626" : days <= 30 ? "#d97706" : "#64748b",
+                    border: `1px solid ${days <= 7 ? "#fecaca" : days <= 30 ? "#fde68a" : "#e2e8f0"}`,
+                  }}>{days}d</span>
+                  <span style={{ color: "#64748b", fontSize: 12 }}>
+                    {new Date(g.deadline).toLocaleDateString("sv-SE")}
+                  </span>
+                </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Quick activity summary */}
+      {(grants.length > 0 || searches.length > 0) && (
+        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "16px", marginBottom: 20 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>Sammanfattning</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {grants.length > 0 && (
+              <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
+                Du har {grants.length} sparade bidrag{statusCounts.investigating ? `, varav ${statusCounts.investigating} under utredning` : ""}{statusCounts.applied ? ` och ${statusCounts.applied} inskickade` : ""}.
+              </div>
+            )}
+            {searches.length > 0 && (
+              <div style={{ fontSize: 12, color: "#475569" }}>
+                {searches.length} {searches.length === 1 ? "sökning" : "sökningar"} gjorda.
+                {searches[0] && ` Senast: ${new Date(searches[0].created_at).toLocaleDateString("sv-SE")}`}
+              </div>
+            )}
+            {grants.filter((g) => (g.bg_checklist_items || []).length > 0).length > 0 && (() => {
+              const totalItems = grants.reduce((sum, g) => sum + (g.bg_checklist_items || []).length, 0);
+              const doneItems = grants.reduce((sum, g) => sum + (g.bg_checklist_items || []).filter((c) => c.done).length, 0);
+              return totalItems > 0 ? (
+                <div style={{ fontSize: 12, color: "#475569" }}>
+                  Checklista: {doneItems}/{totalItems} punkter avklarade.
+                </div>
+              ) : null;
+            })()}
+          </div>
         </div>
       )}
 
@@ -654,7 +774,39 @@ export default function Dashboard() {
     );
   };
 
-  const sectionTitles = { overview: "Översikt", grants: "Mina bidrag", searches: "Sökhistorik", profile: "Företagsprofil" };
+  const renderResources = () => (
+    <>
+      <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16, lineHeight: 1.6 }}>
+        Användbara länkar till myndigheter, rådgivning och finansieringskällor för svenska företag.
+      </div>
+      {RESOURCES.map((group) => (
+        <div key={group.category} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, marginBottom: 12, overflow: "hidden" }}>
+          <div style={{ padding: "12px 16px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px" }}>{group.category}</div>
+          </div>
+          {group.links.map((link) => (
+            <a key={link.name} href={link.url} target="_blank" rel="noopener noreferrer" style={{
+              display: "block", padding: "12px 16px", textDecoration: "none",
+              borderBottom: "1px solid #f8fafc", transition: "background 0.1s",
+            }}
+              onMouseOver={(e) => { e.currentTarget.style.background = "#f8fafc"; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#3b82f6" }}>{link.name}</div>
+                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{link.desc}</div>
+                </div>
+                <span style={{ color: "#cbd5e1", fontSize: 13 }}>&rarr;</span>
+              </div>
+            </a>
+          ))}
+        </div>
+      ))}
+    </>
+  );
+
+  const sectionTitles = { overview: "Översikt", grants: "Mina bidrag", searches: "Sökhistorik", profile: "Företagsprofil", resources: "Resurser" };
 
   return (
     <>
@@ -709,6 +861,7 @@ export default function Dashboard() {
             {activeSection === "grants" && renderGrants()}
             {activeSection === "searches" && renderSearches()}
             {activeSection === "profile" && renderProfile()}
+            {activeSection === "resources" && renderResources()}
 
             {/* Footer */}
             <div style={{ marginTop: 32, paddingTop: 16, borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "center", gap: 16, fontSize: 12, color: "#94a3b8" }}>
