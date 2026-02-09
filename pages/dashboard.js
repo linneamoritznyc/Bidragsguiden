@@ -359,15 +359,20 @@ export default function Dashboard() {
   const loadGrants = useCallback(async () => {
     if (!user) return;
     setLoadingGrants(true);
-    const [grantsData, quizProfile, userSearches] = await Promise.all([
-      getSavedGrants(user.id),
-      getQuizAnswers(user.id),
-      getUserSearches(user.id),
-    ]);
-    setGrants(grantsData);
-    setQuizData(quizProfile);
-    setSearches(userSearches);
-    setLoadingGrants(false);
+    try {
+      const [grantsData, quizProfile, userSearches] = await Promise.all([
+        getSavedGrants(user.id),
+        getQuizAnswers(user.id),
+        getUserSearches(user.id),
+      ]);
+      setGrants(grantsData);
+      setQuizData(quizProfile);
+      setSearches(userSearches);
+    } catch (err) {
+      console.error("Failed to load dashboard data:", err);
+    } finally {
+      setLoadingGrants(false);
+    }
   }, [user]);
 
   useEffect(() => { if (user) loadGrants(); }, [user, loadGrants]);
