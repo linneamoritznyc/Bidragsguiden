@@ -30,7 +30,7 @@ const LoadingDots = () => {
 };
 
 // Single grant card with eligibility toggle and feedback
-function GrantCard({ benefit, index, feedback, onFeedbackChange, saved, onSaveToDashboard, dashboardSaved }) {
+function GrantCard({ benefit, index, feedback, onFeedbackChange, saved }) {
   const [expanded, setExpanded] = useState(false);
   const [reasonInput, setReasonInput] = useState(feedback?.reason || "");
 
@@ -179,51 +179,23 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange, saved, onSaveTo
         }}>Läs mer på {benefit.agency} →</a>
       )}
 
-      {/* AI answer to user's question */}
+      {/* AI answer to user's question — prominent so user can decide */}
       {benefit.user_answer && (
         <div style={{
-          padding: "12px 16px", borderRadius: 10, marginBottom: 12,
-          background: "rgba(167, 139, 250, 0.06)",
-          border: "1px solid rgba(167, 139, 250, 0.2)",
+          padding: "14px 16px", borderRadius: 10, marginBottom: 12,
+          background: "rgba(56, 189, 248, 0.08)",
+          border: "1px solid rgba(56, 189, 248, 0.25)",
+          borderLeft: "3px solid #38bdf8",
         }}>
           <div style={{
-            fontSize: 10, color: "#a78bfa", textTransform: "uppercase",
-            letterSpacing: "0.5px", marginBottom: 6, fontWeight: 600,
+            fontSize: 11, color: "#38bdf8", textTransform: "uppercase",
+            letterSpacing: "0.5px", marginBottom: 6, fontWeight: 700,
           }}>
             Svar på din fråga
           </div>
-          <div style={{ fontSize: 13, color: "#cbd5e1", lineHeight: 1.6 }}>
+          <div style={{ fontSize: 14, color: "#e2e8f0", lineHeight: 1.7 }}>
             {benefit.user_answer}
           </div>
-        </div>
-      )}
-
-      {/* Save to dashboard button */}
-      {onSaveToDashboard && !saved && (
-        <div style={{ marginBottom: 12 }}>
-          {dashboardSaved ? (
-            <div style={{
-              padding: "8px 14px", borderRadius: 8,
-              background: "rgba(16, 185, 129, 0.08)",
-              border: "1px solid rgba(16, 185, 129, 0.2)",
-              fontSize: 12, color: "#10b981", fontWeight: 500,
-              textAlign: "center",
-            }}>Sparad i din dashboard</div>
-          ) : (
-            <button
-              onClick={() => onSaveToDashboard(benefit)}
-              style={{
-                width: "100%", padding: "10px 14px", borderRadius: 8,
-                background: "rgba(16, 185, 129, 0.08)",
-                border: "1px solid rgba(16, 185, 129, 0.2)",
-                color: "#10b981", fontSize: 12, fontWeight: 600,
-                cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
-                transition: "all 0.2s",
-              }}
-              onMouseOver={(e) => { e.currentTarget.style.background = "rgba(16, 185, 129, 0.15)"; }}
-              onMouseOut={(e) => { e.currentTarget.style.background = "rgba(16, 185, 129, 0.08)"; }}
-            >Spara till min dashboard</button>
-          )}
         </div>
       )}
 
@@ -339,7 +311,6 @@ export default function Home() {
   const [answers, setAnswers] = useState({});
   const [multiSelect, setMultiSelect] = useState([]);
   const [result, setResult] = useState(null);
-  const [dashboardSaved, setDashboardSaved] = useState({}); // { grantName: true }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [fadeIn, setFadeIn] = useState(true);
@@ -560,34 +531,53 @@ export default function Home() {
     return `Du är en expert på ALLA svenska företagsstöd, bidrag och finansieringsmöjligheter. Du har djup kunskap om bidrag från ALLA dessa källor:
 
 STATLIGA MYNDIGHETER:
-- Tillväxtverket (regionalt investeringsstöd, företagsstöd, EU:s regionalfond, konsultcheckar)
-- Vinnova (innovationsbidrag, förstudier, samverkansprojekt, utmaningsdriven innovation)
-- Energimyndigheten (energieffektivisering, klimatpremien, biogas, fossilfritt)
-- Jordbruksverket (investeringsstöd jordbruk, landsbygdsutveckling, livsmedelsförädling)
-- Arbetsförmedlingen (starta eget-bidrag, nystartsjobb, lönebidrag, yrkesintroduktion)
+- Tillväxtverket (regionalt investeringsstöd, företagsstöd, EU:s regionalfond, konsultcheckar, Klimatklivet)
+- Vinnova (innovationsbidrag, förstudier, samverkansprojekt, utmaningsdriven innovation, Innovationscheck)
+- Energimyndigheten (energieffektivisering, klimatpremien, biogas, fossilfritt, Industriklivet)
+- Naturvårdsverket (Klimatklivet — investeringsstöd för klimatåtgärder, cirkulär ekonomi)
+- Jordbruksverket (investeringsstöd jordbruk, landsbygdsutveckling, livsmedelsförädling, startstöd unga jordbrukare)
+- Arbetsförmedlingen (starta eget-bidrag, nystartsjobb, lönebidrag, yrkesintroduktion, introduktionsjobb)
 - Försäkringskassan (aktivitetsstöd och starta eget-bidrag för den som uppfyller särskilda villkor — upp till 12 månader)
-- Länsstyrelserna (regionala företagsstöd, specifika för varje län)
-- Almi (förstudiemedel, innovationslån, mikrolån, mentorskap)
-- Business Sweden (exportstöd, internationaliseringscheck)
-- Konstnärsnämnden / Kulturrådet (stöd för kreativa näringar)
+- Länsstyrelserna (regionala företagsstöd, specifika för varje län, landsbygdsstöd)
+- Almi (förstudiemedel, innovationslån, mikrolån, mentorskap, Almi Invest riskkapital)
+- Business Sweden (exportstöd, internationaliseringscheck, Go Global)
+- Konstnärsnämnden / Kulturrådet (stöd för kreativa näringar, kultursamverkan)
 - Saminvest (statligt riskkapital via fonder)
+- Skatteverket (Växastödet — sänkt arbetsgivaravgift för enskild firma med första anställd)
+- MUCF (stöd till ung företagsamhet, organisationsbidrag)
+- Boverket (stöd för grönt byggande, energieffektivisering i lokaler)
+- Patent- och registreringsverket (stöd och vägledning kring patent, varumärkesskydd)
+- Trafikverket (stöd för hållbara transporter och godslösningar)
+- Tillgänglighetsrådet (stöd för unga, gravida och funktionsnedsatta företagare via regionala aktörer)
 
 REGIONALA STÖD (${regionMap[finalAnswers.region] || "ej angivet"}):
 - Regionens egna företagsstöd, mikrostöd och investeringsbidrag
 - Lokala science parks och inkubatorer
 - Kommunalt näringslivsstöd
 
-EU-FONDER:
+EU-FONDER OCH INTERNATIONELLT:
 - Regionalfonden (ERUF) via Tillväxtverket
-- Socialfonden (ESF+)
-- Horizon Europe / EIC Accelerator
-- Eurostars
+- Socialfonden (ESF+) — kompetensutveckling, inkludering
+- Horizon Europe / EIC Accelerator — forskningsintensiva småföretag
+- Eurostars — samarbetsprojekt med internationell partner
 - NOPEF (nordisk exportfinansiering)
+- COSME / Single Market Programme — EU:s SME-stöd
+- Life-programmet — miljö- och klimatprojekt
+- Nordiska Ministerrådet (nordiska samarbetsprojekt)
 
 SKATTELÄTTNADER OCH AVDRAG:
+- Växastödet (halverad arbetsgivaravgift för enskild firma som anställer sin första medarbetare — via Skatteverket)
 - RUT-avdrag (för kunder som köper hushållsnära tjänster — relevant om företaget verkar inom städ, trädgård, barnpassning etc.)
 - ROT-avdrag (för kunder som köper byggtjänster — relevant om företaget är inom bygg/renovering)
-- Skattereduktioner för grön teknik
+- Skattereduktioner för grön teknik (solceller, laddboxar, batterier)
+- Forskning och utveckling (FoU-avdrag) — sänkt arbetsgivaravgift för forskande företag
+
+PRIVATA OCH BRANSCHSPECIFIKA STÖD:
+- Stiftelser och fonder (Kungliga Patriotiska Sällskapet, Innovationsfonden, branschspecifika stiftelser)
+- IFS (Internationella Företagarföreningen i Sverige — stöd för företagare med utländsk bakgrund)
+- Ung Företagsamhet (UF) — mentorskap och nätverk för unga företagare
+- NyföretagarCentrum — kostnadsfri rådgivning för nya företagare
+- SISP (Swedish Incubators & Science Parks) — inkubatorprogram
 
 Baserat på detta företags situation, ge en KOMPLETT lista med relevanta stöd, bidrag och finansieringsmöjligheter.
 
@@ -747,6 +737,12 @@ VIKTIGT om follow_up_questions:
           kommun,
           refineCount: 0,
         });
+        // Auto-save all grants to dashboard
+        if (parsed.benefits?.length > 0) {
+          for (const grant of parsed.benefits) {
+            saveGrant({ userId: user.id, grant }).catch(() => {});
+          }
+        }
       }
     } catch (err) {
       if (err.message !== "daily_limit") {
@@ -930,14 +926,6 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
     downloadAsPDF(exportResult, answers);
   };
 
-  const handleSaveToDashboard = async (grant) => {
-    if (!user) return;
-    const id = await saveGrant({ userId: user.id, grant });
-    if (id) {
-      setDashboardSaved((prev) => ({ ...prev, [grant.name]: true }));
-    }
-  };
-
   const handleEmailSignup = async () => {
     if (!emailInput || !emailInput.includes("@")) {
       setEmailError("Ange en giltig e-postadress");
@@ -1084,7 +1072,7 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                 }}>
                   Svara på några snabba frågor så söker vår AI igenom hundratals
                   bidrag från Tillväxtverket, Vinnova, Almi, Energimyndigheten,
-                  EU-fonder och fler.
+                  Naturvårdsverket, regionala stöd, EU-fonder och fler.
                 </p>
                 <p style={{
                   fontSize: 13, color: "#64748b", lineHeight: 1.5,
@@ -1721,8 +1709,6 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                     index={i}
                     feedback={feedback[i]}
                     onFeedbackChange={handleFeedbackChange}
-                    onSaveToDashboard={user ? handleSaveToDashboard : null}
-                    dashboardSaved={dashboardSaved[benefit.name]}
                   />
                 ))}
 
