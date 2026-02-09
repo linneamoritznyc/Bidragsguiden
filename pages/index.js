@@ -881,31 +881,37 @@ VIKTIGT om follow_up_questions:
   };
 
   const refineResults = async (extraComment) => {
-    // Build feedback summary from user's input
-    const feedbackEntries = Object.entries(feedback);
+    // Build feedback summary from user's input (only numeric indices from current results)
+    const feedbackEntries = Object.entries(feedback).filter(([idx]) => !isNaN(parseInt(idx)));
     const notEligible = feedbackEntries
       .filter(([, fb]) => fb.eligible === "no")
       .map(([idx, fb]) => {
         const benefit = result.benefits[parseInt(idx)];
+        if (!benefit) return null;
         const reason = fb.reason ? ` — Anledning: ${fb.reason}` : "";
         return `- "${benefit.name}" (ej aktuellt${reason})`;
-      });
+      })
+      .filter(Boolean);
 
     const eligible = feedbackEntries
       .filter(([, fb]) => fb.eligible === "yes")
       .map(([idx, fb]) => {
         const benefit = result.benefits[parseInt(idx)];
+        if (!benefit) return null;
         const comment = fb.reason ? ` — Kommentar: ${fb.reason}` : "";
         return `- "${benefit.name}" (aktuellt, användaren vill ha mer av denna typ${comment})`;
-      });
+      })
+      .filter(Boolean);
 
     const unsure = feedbackEntries
       .filter(([, fb]) => fb.eligible === "unsure")
       .map(([idx, fb]) => {
         const benefit = result.benefits[parseInt(idx)];
+        if (!benefit) return null;
         const comment = fb.reason ? ` — Fråga: ${fb.reason}` : "";
         return `- "${benefit.name}" (användaren vet inte om de kvalificerar${comment})`;
-      });
+      })
+      .filter(Boolean);
 
     setRefining(true);
     setShowRefineDialog(false);
@@ -936,10 +942,11 @@ ANVÄNDARENS FEEDBACK PÅ TIDIGARE REKOMMENDATIONER:
       .map(([idx]) => result.benefits[parseInt(idx)])
       .filter(Boolean);
 
-    // Tell AI which grants are already saved so it doesn't repeat them
+    // Tell AI which grants are already saved or dismissed so it doesn't repeat them
     const allSavedNames = [
       ...savedGrants.map((g) => g.name),
       ...newSaved.map((g) => g.name),
+      ...Array.from(dismissedGrants),
     ];
 
     feedbackPrompt += `
@@ -1788,7 +1795,11 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                     textTransform: "uppercase", letterSpacing: "1px",
                     margin: 0, fontFamily: "'Space Mono', monospace",
                   }}>
-                    {(result.benefits?.filter((b) => !dismissedGrants.has(b.name)).length || 0) + savedGrants.length} bidrag och stöd{savedGrants.length > 0 ? ` (${savedGrants.length} sparade)` : ""}
+                    {(() => {
+                      const savedNames = new Set(savedGrants.map((g) => g.name));
+                      const visibleNew = result.benefits?.filter((b) => !dismissedGrants.has(b.name) && !savedNames.has(b.name)).length || 0;
+                      return visibleNew + savedGrants.length;
+                    })()} bidrag och stöd{savedGrants.length > 0 ? ` (${savedGrants.length} sparade)` : ""}
                   </h3>
                   <span style={{
                     fontSize: 11, color: "#475569", fontStyle: "italic",
@@ -1822,6 +1833,8 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                           index={`saved-${i}`}
                           feedback={undefined}
                           onFeedbackChange={() => {}}
+                          onDismiss={() => setSavedGrants((prev) => prev.filter((_, j) => j !== i))}
+                          onAskQuestion={askGrantQuestion}
                           saved
                         />
                         <button
@@ -1844,21 +1857,24 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                   </div>
                 )}
 
-                {/* New grant cards from AI */}
-                {result.benefits?.filter((b) => !dismissedGrants.has(b.name)).map((benefit, i) => {
-                  const originalIndex = result.benefits.indexOf(benefit);
-                  return (
-                    <GrantCard
-                      key={`${refineCount}-${originalIndex}`}
-                      benefit={benefit}
-                      index={originalIndex}
-                      feedback={feedback[originalIndex]}
-                      onFeedbackChange={handleFeedbackChange}
-                      onDismiss={handleDismissGrant}
-                      onAskQuestion={askGrantQuestion}
-                    />
-                  );
-                })}
+                {/* New grant cards from AI (exclude dismissed + already saved) */}
+                {(() => {
+                  const savedNames = new Set(savedGrants.map((g) => g.name));
+                  return result.benefits?.filter((b) => !dismissedGrants.has(b.name) && !savedNames.has(b.name)).map((benefit) => {
+                    const originalIndex = result.benefits.indexOf(benefit);
+                    return (
+                      <GrantCard
+                        key={`${refineCount}-${originalIndex}`}
+                        benefit={benefit}
+                        index={originalIndex}
+                        feedback={feedback[originalIndex]}
+                        onFeedbackChange={handleFeedbackChange}
+                        onDismiss={handleDismissGrant}
+                        onAskQuestion={askGrantQuestion}
+                      />
+                    );
+                  });
+                })()}
 
                 {/* Export buttons */}
                 <div style={{
