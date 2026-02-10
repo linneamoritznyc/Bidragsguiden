@@ -411,8 +411,8 @@ export default function Home() {
     const newAnswers = { ...answers, [categoryId]: value };
     setAnswers(newAnswers);
     if (step < categories.length - 1) {
-      // Start AI prefetch when moving to the last question
-      if (step === categories.length - 2) {
+      // Start AI prefetch after revenue question (step 5) for ~18s head start
+      if (step === categories.length - 3 && !prefetchRef.current) {
         startPrefetch(newAnswers);
       }
       transition(() => setStep(step + 1));
@@ -426,8 +426,8 @@ export default function Home() {
     setAnswers(newAnswers);
     setMultiSelect([]);
     if (step < categories.length - 1) {
-      // Start AI prefetch when moving to the last question
-      if (step === categories.length - 2) {
+      // Start AI prefetch after revenue question (step 5) for ~18s head start
+      if (step === categories.length - 3 && !prefetchRef.current) {
         startPrefetch(newAnswers);
       }
       transition(() => setStep(step + 1));
@@ -768,14 +768,35 @@ VIKTIGT om follow_up_questions:
       .join("\n");
 
     const clean = text.replace(/```json|```/g, "").trim();
-    return JSON.parse(clean);
+
+    // Robust JSON parsing — AI sometimes adds text around the JSON
+    try {
+      return JSON.parse(clean);
+    } catch {
+      // Try to find a JSON object in the text
+      const jsonMatch = clean.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          return JSON.parse(jsonMatch[0]);
+        } catch {
+          // fall through
+        }
+      }
+      console.error("Failed to parse AI response:", clean.substring(0, 500));
+      throw new Error("Kunde inte tolka AI-svaret. Försök igen.");
+    }
   };
 
-  // Pre-fetch: fire the API call early while user answers the last question
+  // Pre-fetch: fire the API call early while user answers remaining questions
+  // Fires after revenue (step 5) — defaults industry & offering_type for ~18s head start
   const startPrefetch = (partialAnswers) => {
     prefetchRef.current = null;
     setPrefetching(true);
-    const prefetchAnswers = { ...partialAnswers, offering_type: "both" };
+    const prefetchAnswers = {
+      ...partialAnswers,
+      industry: partialAnswers.industry || ["other"],
+      offering_type: partialAnswers.offering_type || "both",
+    };
     const contextPrompt = buildPrompt(prefetchAnswers, kommun);
     const promise = fetch("/api/analyze", {
       method: "POST",
@@ -794,7 +815,11 @@ VIKTIGT om follow_up_questions:
           .filter(Boolean)
           .join("\n");
         const clean = text.replace(/```json|```/g, "").trim();
-        return { parsed: JSON.parse(clean), _usage: data._usage };
+        try {
+          return { parsed: JSON.parse(clean), _usage: data._usage };
+        } catch {
+          return null;
+        }
       })
       .catch(() => null);
     prefetchRef.current = { promise, baseAnswers: { ...partialAnswers } };
@@ -837,6 +862,11 @@ VIKTIGT om follow_up_questions:
       if (!parsed) {
         const contextPrompt = buildPrompt(finalAnswers, kommun);
         parsed = await callAPI(`${contextPrompt}\n\n${jsonInstructions}`);
+      }
+
+      // Validate response structure
+      if (!parsed || !Array.isArray(parsed.benefits)) {
+        throw new Error("Ogiltigt svar från AI. Försök igen.");
       }
 
       setResult(parsed);
@@ -974,6 +1004,12 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
       }
 
       const parsed = await callAPI(`${feedbackPrompt}\n\n${jsonInstructions}`);
+
+      // Validate the response has expected structure
+      if (!parsed || !Array.isArray(parsed.benefits)) {
+        throw new Error("invalid_response");
+      }
+
       setResult(parsed);
       setFeedback({});
       setDismissedGrants(new Set());
@@ -987,7 +1023,7 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
     } catch (err) {
       if (err.message !== "daily_limit") {
         console.error("Refine error:", err);
-        setError("Något gick fel vid förfining. Försök igen.");
+        setError("Något gick fel vid förfining. Klicka Förfina för att försöka igen.");
       }
     } finally {
       setRefining(false);
@@ -1508,8 +1544,8 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                     >Gå vidare →</button>
                   )}
                 </div>
-                {/* Prefetch indicator on last question */}
-                {prefetching && step === categories.length - 1 && (
+                {/* Prefetch indicator on last two questions (industry + offering_type) */}
+                {prefetching && step >= categories.length - 2 && (
                   <div style={{
                     marginTop: 16, display: "flex", alignItems: "center", gap: 8,
                     fontSize: 12, color: "#64748b",
