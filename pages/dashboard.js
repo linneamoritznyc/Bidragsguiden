@@ -334,7 +334,7 @@ function SearchHistoryCard({ search, onDelete }) {
 // --- Main Dashboard ---
 
 export default function Dashboard() {
-  const { user, profile, loading, signOut } = useAuth();
+  const { user, profile, loading, signOut, updateProfile, deleteAccount } = useAuth();
   const router = useRouter();
   const [grants, setGrants] = useState([]);
   const [filter, setFilter] = useState("all");
@@ -342,6 +342,12 @@ export default function Dashboard() {
   const [quizData, setQuizData] = useState(null);
   const [searches, setSearches] = useState([]);
   const [activeSection, setActiveSection] = useState("overview");
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -730,6 +736,41 @@ export default function Dashboard() {
     </>
   );
 
+  const handleSaveProfile = async () => {
+    setSavingProfile(true);
+    try {
+      await updateProfile({ display_name: editName, email: editEmail });
+      setEditingProfile(false);
+    } catch {
+      alert("Kunde inte spara. Försök igen.");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      await deleteAccount();
+      window.location.href = "/";
+    } catch {
+      alert("Något gick fel. Försök igen eller kontakta oss.");
+      setDeleting(false);
+    }
+  };
+
+  const handleExportData = async () => {
+    if (!user) return;
+    const data = await exportUserData(user.id);
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `bidragsguiden-min-data-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const renderProfile = () => {
     const answers = quizData?.quiz_answers || {};
     const displayFields = ["company_type", "company_age", "employees", "region", "revenue", "industry", "needs", "offering_type"];
@@ -737,6 +778,67 @@ export default function Dashboard() {
 
     return (
       <>
+        {/* Personal data section (GDPR: right to rectification) */}
+        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "20px", marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px" }}>Personuppgifter</div>
+            {!editingProfile && (
+              <button onClick={() => {
+                setEditName(profile?.display_name || "");
+                setEditEmail(profile?.email || user?.email || "");
+                setEditingProfile(true);
+              }} style={{
+                padding: "4px 12px", borderRadius: 4, background: "#f1f5f9",
+                border: "1px solid #e2e8f0", color: "#3b82f6", fontSize: 12,
+                fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+              }}>Redigera</button>
+            )}
+          </div>
+          {editingProfile ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div>
+                <label style={{ fontSize: 11, color: "#64748b", fontWeight: 600, display: "block", marginBottom: 4 }}>Namn</label>
+                <input value={editName} onChange={(e) => setEditName(e.target.value)}
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: "#64748b", fontWeight: 600, display: "block", marginBottom: 4 }}>E-post</label>
+                <input value={editEmail} onChange={(e) => setEditEmail(e.target.value)}
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                <button onClick={handleSaveProfile} disabled={savingProfile} style={{
+                  padding: "7px 16px", borderRadius: 4, background: "#3b82f6", color: "#fff",
+                  border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                  opacity: savingProfile ? 0.5 : 1,
+                }}>{savingProfile ? "Sparar..." : "Spara"}</button>
+                <button onClick={() => setEditingProfile(false)} style={{
+                  padding: "7px 16px", borderRadius: 4, background: "#f1f5f9",
+                  border: "1px solid #e2e8f0", color: "#64748b", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                }}>Avbryt</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div style={{ padding: "10px 12px", borderRadius: 4, background: "#f8fafc", border: "1px solid #f1f5f9" }}>
+                <div style={{ fontSize: 10, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 3, fontWeight: 600 }}>Namn</div>
+                <div style={{ fontSize: 13, color: "#334155", fontWeight: 500 }}>{profile?.display_name || "Ej angivet"}</div>
+              </div>
+              <div style={{ padding: "10px 12px", borderRadius: 4, background: "#f8fafc", border: "1px solid #f1f5f9" }}>
+                <div style={{ fontSize: 10, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 3, fontWeight: 600 }}>E-post</div>
+                <div style={{ fontSize: 13, color: "#334155", fontWeight: 500 }}>{profile?.email || user?.email || "Ej angivet"}</div>
+              </div>
+              {profile?.gdpr_consent_at && (
+                <div style={{ padding: "10px 12px", borderRadius: 4, background: "#f8fafc", border: "1px solid #f1f5f9" }}>
+                  <div style={{ fontSize: 10, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 3, fontWeight: 600 }}>Samtycke</div>
+                  <div style={{ fontSize: 13, color: "#334155", fontWeight: 500 }}>{new Date(profile.gdpr_consent_at).toLocaleDateString("sv-SE")}</div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Quiz profile */}
         {hasData ? (
           <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "20px", marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -766,7 +868,7 @@ export default function Dashboard() {
             </div>
           </div>
         ) : (
-          <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "48px 20px", textAlign: "center" }}>
+          <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "48px 20px", textAlign: "center", marginBottom: 16 }}>
             <div style={{ fontSize: 14, color: "#64748b", marginBottom: 6 }}>Ingen företagsprofil sparad ännu.</div>
             <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 20 }}>Gör quizet så sparas ditt företags uppgifter här automatiskt.</div>
           </div>
@@ -774,7 +876,47 @@ export default function Dashboard() {
         <a href="/" style={{
           display: "inline-block", padding: "9px 20px", borderRadius: 6,
           background: "#3b82f6", color: "#fff", fontWeight: 600, textDecoration: "none", fontSize: 13, fontFamily: "'DM Sans', sans-serif",
+          marginBottom: 16,
         }}>Gör nytt quiz</a>
+
+        {/* GDPR actions */}
+        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "20px", marginTop: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 12 }}>Hantera din data</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={handleExportData} style={{
+              padding: "8px 16px", borderRadius: 4, background: "#eff6ff",
+              border: "1px solid #bfdbfe", color: "#2563eb", fontSize: 12,
+              fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+            }}>Ladda ner all min data (JSON)</button>
+            {!confirmDelete ? (
+              <button onClick={() => setConfirmDelete(true)} style={{
+                padding: "8px 16px", borderRadius: 4, background: "#fef2f2",
+                border: "1px solid #fecaca", color: "#dc2626", fontSize: 12,
+                fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+              }}>Radera mitt konto</button>
+            ) : (
+              <div style={{ flex: "1 1 100%", padding: "12px", borderRadius: 4, background: "#fef2f2", border: "1px solid #fecaca" }}>
+                <p style={{ fontSize: 12, color: "#dc2626", margin: "0 0 8px", fontWeight: 600 }}>
+                  Är du säker? All din data raderas permanent och kan inte återställas.
+                </p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => setConfirmDelete(false)} style={{
+                    padding: "6px 14px", borderRadius: 4, background: "#f1f5f9",
+                    border: "1px solid #e2e8f0", color: "#64748b", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                  }}>Avbryt</button>
+                  <button onClick={handleDeleteAccount} disabled={deleting} style={{
+                    padding: "6px 14px", borderRadius: 4, background: "#dc2626",
+                    border: "none", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                    opacity: deleting ? 0.5 : 1,
+                  }}>{deleting ? "Raderar..." : "Ja, radera allt"}</button>
+                </div>
+              </div>
+            )}
+          </div>
+          <a href="/integritetspolicy" style={{ display: "inline-block", marginTop: 10, fontSize: 11, color: "#3b82f6", textDecoration: "none" }}>
+            Läs vår integritetspolicy
+          </a>
+        </div>
       </>
     );
   };

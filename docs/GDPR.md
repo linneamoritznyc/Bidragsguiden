@@ -225,23 +225,25 @@ Om din app hanterar platsdata (t.ex. GPS-spårning av fordon eller ruttplanering
 ## 13. Implementeringsstatus
 
 ### Implementerat
-- [x] Radera konto (all data raderas permanent via delete_user_data RPC)
+- [x] Radera konto (all data raderas permanent via delete_user_data RPC -- bg_saved_grants, bg_user_searches, bg_usage, bg_profiles)
 - [x] EU-lagring (Supabase EU-region)
 - [x] Säker auth (Supabase Auth med RLS)
-- [x] Exportera data-funktion (JSON-export av profil, bidrag, sokhistorik, användning)
-- [x] Integritetspolicy-sida med alla GDPR-sektioner
-- [x] Samtycke-checkbox vid registrering (inte forkryssad)
+- [x] Exportera data-funktion (JSON-export av profil, bidrag, sökhistorik, användningsstatistik)
+- [x] Integritetspolicy-sida med alla GDPR-sektioner (rättslig grund, lagringsperioder, tredjeparter, rättigheter, IMY-kontakt)
+- [x] Samtycke-checkbox vid registrering (INTE förkryssad, login-knapp inaktiv tills ikryssad)
+- [x] Bevis på samtycke (gdpr_consent + gdpr_consent_at tidsstämpel i bg_profiles)
 - [x] Rättslig grund dokumenterad (samtycke, Art. 6.1a)
-- [x] Lagringsperioder specificerade
+- [x] Lagringsperioder specificerade (90 dagar anonym, permanent för konton)
 - [x] IMY-kontaktinfo i integritetspolicyn
+- [x] Rätt till rättelse i UI (redigera namn/e-post i dashboard under Företagsprofil)
+- [x] Dataexport + kontoborttagning tillgänglig i dashboard (Företagsprofil-sektionen)
+- [x] Cookie-banner behövs ej (inga cookies används, bekräftat i policy)
 
-### Saknas fortfarande
-- [ ] Databehandlingsavtal med tredjeparter (Supabase DPA m.fl.)
-- [ ] Register over behandlingar (intern dokumentation)
-- [ ] Rätt till rättelse i UI (redigera profil/persondata)
-- [ ] DPIA for appar med platsdata (ej tillämpligt for Bidragsguiden)
-- [ ] Incidenthanteringsplan
-- [ ] Bevis på samtycke (tidsstämplar, version av policy)
+### Saknas fortfarande (ej kod -- affärsbeslut/juridik)
+- [ ] Databehandlingsavtal (DPA) med Supabase, Vercel, Anthropic (signeras via respektive tjänst)
+- [ ] Register över behandlingar (intern dokumentation för IMY-granskning, Art. 30)
+- [ ] Incidenthanteringsplan (intern rutin för dataläckor, Art. 33-34)
+- [ ] DPIA -- ej tillämpligt för Bidragsguiden (ingen platsdata eller profilering)
 
 ---
 

@@ -25,6 +25,8 @@ export default function Login() {
   const handleLogin = async () => {
     if (typeof window !== "undefined") {
       localStorage.setItem("bg_remember_me", rememberMe ? "true" : "false");
+      // GDPR: mark consent as pending so auth callback can save the timestamp
+      localStorage.setItem("bg_gdpr_consent_pending", "true");
     }
     await signInWithGoogle();
   };
