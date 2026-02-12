@@ -29,6 +29,10 @@ export default function AuthCallback() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (session?.user) {
+          // Clean URL hash (remove tokens from address bar)
+          if (typeof window !== "undefined" && window.location.hash) {
+            window.history.replaceState(null, "", window.location.pathname);
+          }
           setStatus("Inloggad! Skickar dig vidare...");
           router.replace("/dashboard");
         } else if (event === "INITIAL_SESSION") {
