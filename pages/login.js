@@ -49,6 +49,7 @@ export default function Login() {
       <Head>
         <title>Logga in -- Bidragsguiden</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
       </Head>
 
@@ -206,7 +207,6 @@ export default function Login() {
           <div style={{
             textAlign: "center", padding: "0 8px",
           }}>
-
             <a
               href="/"
               style={{
@@ -220,6 +220,10 @@ export default function Login() {
             >
               Tillbaka till quizet (utan konto)
             </a>
+            <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 8, fontSize: 12 }}>
+              <a href="/integritetspolicy" style={{ color: "#475569", textDecoration: "none" }}>Integritetspolicy</a>
+              <a href="/anvandarvillkor" style={{ color: "#475569", textDecoration: "none" }}>Anv&auml;ndarvillkor</a>
+            </div>
           </div>
         </div>
       </div>

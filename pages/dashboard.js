@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { useAuth } from "../lib/auth";
+import { useToast } from "../components/Toast";
 import { resultToText, downloadAsFile, downloadAsPDF } from "../lib/export";
 import {
   getSavedGrants,
@@ -335,6 +336,7 @@ function SearchHistoryCard({ search, onDelete }) {
 
 export default function Dashboard() {
   const { user, profile, loading, signOut, updateProfile, deleteAccount } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
   const [grants, setGrants] = useState([]);
   const [filter, setFilter] = useState("all");
@@ -347,9 +349,11 @@ export default function Dashboard() {
   const [editEmail, setEditEmail] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -501,12 +505,69 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      {/* User + logout */}
-      <div style={{ padding: "16px 20px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 6 }}>{profile?.display_name || profile?.email || ""}</div>
-        <button onClick={signOut} style={{
-          background: "none", border: "none", color: "#64748b", fontSize: 12, cursor: "pointer", padding: 0, fontFamily: "'DM Sans', sans-serif",
-        }}>Logga ut</button>
+      {/* User menu with avatar dropdown */}
+      <div style={{ padding: "12px 20px", borderTop: "1px solid rgba(255,255,255,0.06)", position: "relative" }}>
+        <button
+          onClick={() => setUserMenuOpen((v) => !v)}
+          style={{
+            display: "flex", alignItems: "center", gap: 10, width: "100%",
+            background: userMenuOpen ? "rgba(255,255,255,0.05)" : "transparent",
+            border: "none", borderRadius: 6, padding: "8px 6px",
+            cursor: "pointer", transition: "background 0.15s",
+          }}
+          onMouseOver={(e) => { if (!userMenuOpen) e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+          onMouseOut={(e) => { if (!userMenuOpen) e.currentTarget.style.background = "transparent"; }}
+        >
+          {/* Avatar */}
+          <div style={{
+            width: 30, height: 30, borderRadius: "50%",
+            background: "linear-gradient(135deg, #3b82f6, #059669)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0,
+          }}>
+            {(profile?.display_name || profile?.email || "?").charAt(0).toUpperCase()}
+          </div>
+          <div style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
+            <div style={{ fontSize: 12, color: "#f1f5f9", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {profile?.display_name || "Mitt konto"}
+            </div>
+            <div style={{ fontSize: 10, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {profile?.email || user?.email || ""}
+            </div>
+          </div>
+          {/* Chevron */}
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, transform: userMenuOpen ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.15s" }}>
+            <path d="M3 4.5L6 7.5L9 4.5" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+
+        {/* Dropdown menu */}
+        {userMenuOpen && (
+          <div style={{
+            position: "absolute", bottom: "100%", left: 12, right: 12,
+            background: "#1e293b", border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: 8, padding: "4px 0", marginBottom: 4,
+            boxShadow: "0 -4px 16px rgba(0,0,0,0.3)",
+          }}>
+            <button onClick={() => { setActiveSection("profile"); setUserMenuOpen(false); if (isMobile) setSidebarOpen(false); }} style={{
+              display: "block", width: "100%", padding: "9px 16px", textAlign: "left",
+              background: "none", border: "none", color: "#e2e8f0", fontSize: 12,
+              cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+            }}
+              onMouseOver={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = "none"; }}
+            >Mitt konto</button>
+            <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "4px 0" }} />
+            <button onClick={() => { signOut(); setUserMenuOpen(false); }} style={{
+              display: "block", width: "100%", padding: "9px 16px", textAlign: "left",
+              background: "none", border: "none", color: "#94a3b8", fontSize: 12,
+              cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+            }}
+              onMouseOver={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = "none"; }}
+            >Logga ut</button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -741,34 +802,41 @@ export default function Dashboard() {
     try {
       await updateProfile({ display_name: editName, email: editEmail });
       setEditingProfile(false);
+      showToast("Profil uppdaterad.", "success");
     } catch {
-      alert("Kunde inte spara. Försök igen.");
+      showToast("Kunde inte spara. Försök igen.", "error");
     } finally {
       setSavingProfile(false);
     }
   };
 
   const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== "RADERA") return;
     setDeleting(true);
     try {
       await deleteAccount();
       window.location.href = "/";
     } catch {
-      alert("Något gick fel. Försök igen eller kontakta oss.");
+      showToast("Något gick fel. Försök igen eller kontakta oss.", "error");
       setDeleting(false);
     }
   };
 
   const handleExportData = async () => {
     if (!user) return;
-    const data = await exportUserData(user.id);
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `bidragsguiden-min-data-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const data = await exportUserData(user.id);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `bidragsguiden-min-data-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast("Data exporterad.", "success");
+    } catch {
+      showToast("Kunde inte exportera data. Försök igen.", "error");
+    }
   };
 
   const renderProfile = () => {
@@ -889,26 +957,47 @@ export default function Dashboard() {
               fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
             }}>Ladda ner all min data (JSON)</button>
             {!confirmDelete ? (
-              <button onClick={() => setConfirmDelete(true)} style={{
+              <button onClick={() => { setConfirmDelete(true); setDeleteConfirmText(""); }} style={{
                 padding: "8px 16px", borderRadius: 4, background: "#fef2f2",
                 border: "1px solid #fecaca", color: "#dc2626", fontSize: 12,
                 fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
               }}>Radera mitt konto</button>
             ) : (
-              <div style={{ flex: "1 1 100%", padding: "12px", borderRadius: 4, background: "#fef2f2", border: "1px solid #fecaca" }}>
-                <p style={{ fontSize: 12, color: "#dc2626", margin: "0 0 8px", fontWeight: 600 }}>
-                  Är du säker? All din data raderas permanent och kan inte återställas.
+              <div style={{ flex: "1 1 100%", padding: "16px", borderRadius: 6, background: "#fef2f2", border: "1px solid #fecaca" }}>
+                <p style={{ fontSize: 13, color: "#dc2626", margin: "0 0 4px", fontWeight: 700 }}>
+                  Är du säker?
                 </p>
+                <p style={{ fontSize: 12, color: "#991b1b", margin: "0 0 12px", lineHeight: 1.5 }}>
+                  All din data raderas permanent och kan inte återställas. Det gäller sparade bidrag, checklistor, sökhistorik och din profil.
+                </p>
+                <p style={{ fontSize: 12, color: "#991b1b", margin: "0 0 8px", fontWeight: 600 }}>
+                  Skriv <span style={{ fontFamily: "'Space Mono', monospace", background: "#fee2e2", padding: "1px 6px", borderRadius: 3 }}>RADERA</span> för att bekräfta:
+                </p>
+                <input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="Skriv RADERA"
+                  style={{
+                    width: "100%", padding: "8px 10px", borderRadius: 4,
+                    border: "1px solid #fecaca", fontSize: 13, boxSizing: "border-box",
+                    fontFamily: "'Space Mono', monospace", marginBottom: 10,
+                    background: "#fff",
+                  }}
+                />
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => setConfirmDelete(false)} style={{
-                    padding: "6px 14px", borderRadius: 4, background: "#f1f5f9",
+                  <button onClick={() => { setConfirmDelete(false); setDeleteConfirmText(""); }} style={{
+                    padding: "7px 16px", borderRadius: 4, background: "#f1f5f9",
                     border: "1px solid #e2e8f0", color: "#64748b", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
                   }}>Avbryt</button>
-                  <button onClick={handleDeleteAccount} disabled={deleting} style={{
-                    padding: "6px 14px", borderRadius: 4, background: "#dc2626",
-                    border: "none", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                  <button onClick={handleDeleteAccount} disabled={deleting || deleteConfirmText !== "RADERA"} style={{
+                    padding: "7px 16px", borderRadius: 4,
+                    background: deleteConfirmText === "RADERA" ? "#dc2626" : "#f1f5f9",
+                    border: "none",
+                    color: deleteConfirmText === "RADERA" ? "#fff" : "#94a3b8",
+                    fontSize: 12, fontWeight: 700, cursor: deleteConfirmText === "RADERA" ? "pointer" : "not-allowed",
+                    fontFamily: "'DM Sans', sans-serif",
                     opacity: deleting ? 0.5 : 1,
-                  }}>{deleting ? "Raderar..." : "Ja, radera allt"}</button>
+                  }}>{deleting ? "Raderar..." : "Radera permanent"}</button>
                 </div>
               </div>
             )}
@@ -960,6 +1049,7 @@ export default function Dashboard() {
       <Head>
         <title>{sectionTitles[activeSection]} -- Bidragsguiden</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </Head>
 
@@ -1013,6 +1103,7 @@ export default function Dashboard() {
             {/* Footer */}
             <div style={{ marginTop: 32, paddingTop: 16, borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "center", gap: 16, fontSize: 12, color: "#94a3b8" }}>
               <a href="/integritetspolicy" style={{ color: "#94a3b8", textDecoration: "none" }}>Integritetspolicy</a>
+              <a href="/anvandarvillkor" style={{ color: "#94a3b8", textDecoration: "none" }}>Användarvillkor</a>
               <a href="/" style={{ color: "#94a3b8", textDecoration: "none" }}>Bidragsguiden</a>
             </div>
           </div>

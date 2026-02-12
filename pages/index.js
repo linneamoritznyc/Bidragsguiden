@@ -1129,7 +1129,7 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
         <title>Bidragsguiden — Hitta bidrag och stöd för ditt företag</title>
         <meta name="description" content="AI-driven guide som hittar alla svenska bidrag, stöd och finansieringsmöjligheter för ditt företag. Alla bolagsformer. Ingen data sparas." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
       </Head>
 
       <div style={{
@@ -2414,9 +2414,14 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
 
           <div style={{
             textAlign: "center", paddingTop: 16, paddingBottom: 16,
-            fontSize: 11, color: "#334155", fontFamily: "'Space Mono', monospace",
           }}>
-            Bidragsguiden &copy; 2026
+            <div style={{ display: "flex", justifyContent: "center", gap: 16, marginBottom: 8, fontSize: 12 }}>
+              <a href="/integritetspolicy" style={{ color: "#475569", textDecoration: "none" }}>Integritetspolicy</a>
+              <a href="/anvandarvillkor" style={{ color: "#475569", textDecoration: "none" }}>Användarvillkor</a>
+            </div>
+            <div style={{ fontSize: 11, color: "#334155", fontFamily: "'Space Mono', monospace" }}>
+              Bidragsguiden &copy; 2026
+            </div>
           </div>
         </div>
       </div>

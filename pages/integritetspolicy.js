@@ -1,10 +1,12 @@
 import { useState } from "react";
 import Head from "next/head";
 import { useAuth } from "../lib/auth";
+import { useToast } from "../components/Toast";
 import { exportUserData } from "../lib/dashboard";
 
 export default function Integritetspolicy() {
   const { user, profile, deleteAccount } = useAuth();
+  const { showToast } = useToast();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -15,7 +17,7 @@ export default function Integritetspolicy() {
       window.location.href = "/";
     } catch (err) {
       console.error(err);
-      alert("Något gick fel. Försök igen eller kontakta oss.");
+      showToast("Något gick fel. Försök igen eller kontakta oss.", "error");
       setDeleting(false);
     }
   };
@@ -44,6 +46,7 @@ export default function Integritetspolicy() {
       <Head>
         <title>Integritetspolicy — Bidragsguiden</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
       </Head>
 
@@ -259,6 +262,16 @@ export default function Integritetspolicy() {
               Box 8114, 104 20 Stockholm
             </p>
           </Section>
+
+          {/* Footer */}
+          <div style={{
+            marginTop: 32, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)",
+            display: "flex", justifyContent: "center", gap: 16, fontSize: 12, color: "#475569",
+          }}>
+            <a href="/anvandarvillkor" style={{ color: "#475569", textDecoration: "none" }}>Användarvillkor</a>
+            <span style={{ color: "#334155" }}>|</span>
+            <a href="/" style={{ color: "#475569", textDecoration: "none" }}>Bidragsguiden</a>
+          </div>
         </div>
       </div>
     </>
