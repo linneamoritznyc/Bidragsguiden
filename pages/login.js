@@ -14,6 +14,7 @@ export default function Login() {
   const { user, loading, signInWithGoogle } = useAuth();
   const router = useRouter();
   const [rememberMe, setRememberMe] = useState(true);
+  const [acceptedPolicy, setAcceptedPolicy] = useState(false);
 
   useEffect(() => {
     if (!loading && user) {
@@ -122,24 +123,54 @@ export default function Login() {
               margin: "0 0 24px",
             }} />
 
+            {/* Privacy consent checkbox (GDPR: must not be pre-checked) */}
+            <label style={{
+              display: "flex", alignItems: "flex-start", gap: 10,
+              marginBottom: 20, cursor: "pointer",
+              fontSize: 13, color: "#94a3b8", lineHeight: 1.5,
+            }}>
+              <input
+                type="checkbox"
+                checked={acceptedPolicy}
+                onChange={(e) => setAcceptedPolicy(e.target.checked)}
+                style={{
+                  cursor: "pointer", accentColor: "#38bdf8",
+                  marginTop: 3, flexShrink: 0,
+                }}
+              />
+              <span>
+                Jag har läst och godkänner{" "}
+                <a href="/integritetspolicy" target="_blank" rel="noopener" style={{
+                  color: "#38bdf8", textDecoration: "underline",
+                }}>integritetspolicyn</a>.
+                {" "}Vi sparar ditt namn, e-post och dina bidragsval.
+              </span>
+            </label>
+
             {/* Google sign-in button */}
             <button
               onClick={handleLogin}
+              disabled={!acceptedPolicy}
               style={{
                 width: "100%", padding: "14px 24px",
-                background: "#fff", color: "#1f2937",
+                background: acceptedPolicy ? "#fff" : "rgba(255,255,255,0.15)",
+                color: acceptedPolicy ? "#1f2937" : "#64748b",
                 border: "none", borderRadius: 12,
                 fontSize: 15, fontWeight: 600,
-                cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                cursor: acceptedPolicy ? "pointer" : "not-allowed",
+                fontFamily: "'DM Sans', sans-serif",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 12,
                 transition: "all 0.2s",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                boxShadow: acceptedPolicy ? "0 2px 8px rgba(0,0,0,0.2)" : "none",
+                opacity: acceptedPolicy ? 1 : 0.6,
               }}
               onMouseOver={(e) => {
+                if (!acceptedPolicy) return;
                 e.currentTarget.style.transform = "translateY(-1px)";
                 e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.3)";
               }}
               onMouseOut={(e) => {
+                if (!acceptedPolicy) return;
                 e.currentTarget.style.transform = "translateY(0)";
                 e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)";
               }}
@@ -157,7 +188,7 @@ export default function Login() {
             <label style={{
               display: "flex", alignItems: "center", justifyContent: "center",
               gap: 8, marginTop: 14, cursor: "pointer",
-              fontSize: 13, color: "#94a3b8",
+              fontSize: 13, color: "#64748b",
             }}>
               <input
                 type="checkbox"
@@ -173,19 +204,6 @@ export default function Login() {
           <div style={{
             textAlign: "center", padding: "0 8px",
           }}>
-            <div style={{
-              padding: "14px 16px", borderRadius: 10,
-              background: "rgba(255,255,255,0.02)",
-              border: "1px solid rgba(255,255,255,0.05)",
-              fontSize: 12, color: "#475569", lineHeight: 1.5,
-              marginBottom: 16,
-            }}>
-              Genom att logga in godkänner du vår{" "}
-              <a href="/integritetspolicy" style={{ color: "#38bdf8", textDecoration: "none" }}>
-                integritetspolicy
-              </a>.
-              Vi sparar bara det som behövs för att visa dina bidrag och checklistor.
-            </div>
 
             <a
               href="/"

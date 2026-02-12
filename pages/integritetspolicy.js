@@ -99,6 +99,14 @@ export default function Integritetspolicy() {
             </ul>
           </Section>
 
+          <Section title="Rättslig grund">
+            <p style={{ margin: 0 }}>
+              Vi behandlar dina personuppgifter baserat på ditt <strong style={{ color: "#cbd5e1" }}>samtycke</strong> (GDPR
+              artikel 6.1a). Du ger ditt samtycke genom att aktivt kryssa i rutan på inloggningssidan innan du loggar in.
+              Du kan när som helst återkalla ditt samtycke genom att radera ditt konto, varpå all din data tas bort permanent.
+            </p>
+          </Section>
+
           <Section title="AI-behandling">
             <p style={{ margin: 0 }}>
               Dina anonyma quiz-svar skickas till Anthropics Claude API för analys. Anthropic lagrar inte
@@ -113,6 +121,17 @@ export default function Integritetspolicy() {
               Databasen hostas inom EU. Supabase har Row Level Security (RLS) aktiverat, vilket innebär
               att varje användare bara kan se sin egen data.
             </p>
+          </Section>
+
+          <Section title="Hur länge vi sparar data">
+            <ul style={{ margin: 0, paddingLeft: 20 }}>
+              <li style={{ marginBottom: 6 }}><strong style={{ color: "#cbd5e1" }}>Anonyma sessioner</strong> — quiz-svar och
+                resultat sparas i 90 dagar, sedan raderas de automatiskt</li>
+              <li style={{ marginBottom: 6 }}><strong style={{ color: "#cbd5e1" }}>Användarkonton</strong> — din data sparas
+                så länge du har ett aktivt konto. Vid kontoborttagning raderas all data omedelbart och permanent.</li>
+              <li style={{ marginBottom: 6 }}><strong style={{ color: "#cbd5e1" }}>Användningsstatistik</strong> — daglig
+                sökräknare raderas automatiskt efter 90 dagar</li>
+            </ul>
           </Section>
 
           <Section title="Tredjeparter">
@@ -135,10 +154,16 @@ export default function Integritetspolicy() {
           <Section title="Dina rättigheter (GDPR)">
             <p style={{ margin: "0 0 10px" }}>Enligt GDPR har du rätt att:</p>
             <ul style={{ margin: 0, paddingLeft: 20 }}>
-              <li style={{ marginBottom: 6 }}><strong style={{ color: "#cbd5e1" }}>Se din data</strong> — ladda ner all data vi har om dig</li>
-              <li style={{ marginBottom: 6 }}><strong style={{ color: "#cbd5e1" }}>Radera din data</strong> — ta bort ditt konto och all tillhörande data permanent</li>
-              <li style={{ marginBottom: 6 }}><strong style={{ color: "#cbd5e1" }}>Exportera din data</strong> — ladda ner en kopia i maskinläsbart format (JSON)</li>
+              <li style={{ marginBottom: 6 }}><strong style={{ color: "#cbd5e1" }}>Tillgång</strong> — se och ladda ner all data vi har om dig</li>
+              <li style={{ marginBottom: 6 }}><strong style={{ color: "#cbd5e1" }}>Rättelse</strong> — begära att felaktig data korrigeras</li>
+              <li style={{ marginBottom: 6 }}><strong style={{ color: "#cbd5e1" }}>Radering</strong> — ta bort ditt konto och all tillhörande data permanent</li>
+              <li style={{ marginBottom: 6 }}><strong style={{ color: "#cbd5e1" }}>Dataportabilitet</strong> — ladda ner en kopia i maskinläsbart format (JSON)</li>
+              <li style={{ marginBottom: 6 }}><strong style={{ color: "#cbd5e1" }}>Återkalla samtycke</strong> — du kan när som helst radera ditt konto</li>
+              <li style={{ marginBottom: 6 }}><strong style={{ color: "#cbd5e1" }}>Klaga</strong> — du har rätt att lämna klagomål till Integritetsskyddsmyndigheten (IMY)</li>
             </ul>
+            <p style={{ margin: "10px 0 0" }}>
+              Du kan utöva dina rättigheter direkt i appen (se nedan) eller genom att kontakta oss.
+            </p>
           </Section>
 
           {/* User actions */}
@@ -219,9 +244,19 @@ export default function Integritetspolicy() {
             </div>
           )}
 
-          <Section title="Kontakt">
+          <Section title="Kontakt och tillsynsmyndighet">
+            <p style={{ margin: "0 0 10px" }}>
+              Har du frågor om hur vi hanterar din data? Kontakta oss via e-post
+              eller GitHub.
+            </p>
+            <p style={{ margin: "0 0 10px" }}>
+              Om du inte är nöjd med hur vi hanterar dina personuppgifter har du rätt att
+              lämna klagomål till:
+            </p>
             <p style={{ margin: 0 }}>
-              Har du frågor om hur vi hanterar din data? Kontakta oss via GitHub.
+              <strong style={{ color: "#cbd5e1" }}>Integritetsskyddsmyndigheten (IMY)</strong><br />
+              imy.se | imy@imy.se<br />
+              Box 8114, 104 20 Stockholm
             </p>
           </Section>
         </div>
