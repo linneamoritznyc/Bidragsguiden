@@ -3,11 +3,12 @@ import { createClient } from "@supabase/supabase-js";
 // --- Supabase admin client (server-side, uses service role for usage tracking) ---
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+// SECURITY: Only use the service role key (bypasses RLS for server-side writes to bg_usage).
+// If not configured, usage tracking is disabled but requests still work.
 const supabaseAdmin =
-  supabaseUrl && (supabaseServiceKey || supabaseAnon)
-    ? createClient(supabaseUrl, supabaseServiceKey || supabaseAnon)
+  supabaseUrl && supabaseServiceKey
+    ? createClient(supabaseUrl, supabaseServiceKey)
     : null;
 
 // --- Daily limits ---
@@ -177,6 +178,15 @@ export default async function handler(req, res) {
 
   if (prompt.length > 10000) {
     return res.status(400).json({ error: "Prompt too long" });
+  }
+
+  // Validate sessionId and userId format (must be UUID if provided)
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (sessionId && !uuidRegex.test(sessionId)) {
+    return res.status(400).json({ error: "Invalid session ID" });
+  }
+  if (userId && !uuidRegex.test(userId)) {
+    return res.status(400).json({ error: "Invalid user ID" });
   }
 
   // Quick questions (per-grant Q&A) skip usage tracking but still rate-limit
