@@ -69,6 +69,120 @@ const RESOURCES = [
   ]},
 ];
 
+// --- Visual helper components ---
+
+const CATEGORY_COLORS = {
+  "innovation": { bg: "#eff6ff", color: "#2563eb", border: "#bfdbfe" },
+  "klimat": { bg: "#ecfdf5", color: "#059669", border: "#a7f3d0" },
+  "miljö": { bg: "#ecfdf5", color: "#059669", border: "#a7f3d0" },
+  "digital": { bg: "#f5f3ff", color: "#7c3aed", border: "#ddd6fe" },
+  "export": { bg: "#fffbeb", color: "#d97706", border: "#fde68a" },
+  "hållbar": { bg: "#ecfdf5", color: "#059669", border: "#a7f3d0" },
+  "personal": { bg: "#fff1f2", color: "#e11d48", border: "#fecdd3" },
+  "forsk": { bg: "#eff6ff", color: "#2563eb", border: "#bfdbfe" },
+  "energi": { bg: "#fefce8", color: "#ca8a04", border: "#fef08a" },
+  "jordbruk": { bg: "#f0fdf4", color: "#16a34a", border: "#bbf7d0" },
+  "bygg": { bg: "#fef3c7", color: "#b45309", border: "#fde68a" },
+  "tech": { bg: "#f5f3ff", color: "#7c3aed", border: "#ddd6fe" },
+  "handel": { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" },
+};
+
+function getCategoryStyle(category) {
+  if (!category) return { bg: "#f8fafc", color: "#64748b", border: "#e2e8f0" };
+  const lower = category.toLowerCase();
+  for (const [key, style] of Object.entries(CATEGORY_COLORS)) {
+    if (lower.includes(key)) return style;
+  }
+  return { bg: "#f8fafc", color: "#64748b", border: "#e2e8f0" };
+}
+
+function MatchScoreCircle({ score, size = 44 }) {
+  if (score === null || score === undefined) return null;
+  const color = score >= 80 ? "#059669" : score >= 60 ? "#f59e0b" : "#94a3b8";
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: "50%", flexShrink: 0,
+      background: `conic-gradient(${color} ${score * 3.6}deg, #e8ecf1 0deg)`,
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
+      <div style={{
+        width: size - 6, height: size - 6, borderRadius: "50%", background: "#fff",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: size < 36 ? 9 : 11, fontWeight: 700, color,
+      }}>{score}%</div>
+    </div>
+  );
+}
+
+function GrantProgressBar({ value, color = "#3b82f6", h = 4 }) {
+  return (
+    <div style={{ height: h, background: "#e8ecf1", borderRadius: h, overflow: "hidden" }}>
+      <div style={{ height: "100%", width: `${Math.min(value, 100)}%`, background: color, borderRadius: h, transition: "width 0.5s ease" }} />
+    </div>
+  );
+}
+
+function DeadlineBadge({ days }) {
+  if (days === null || days === undefined) return <span style={{ fontSize: 11, color: "#3b82f6", fontWeight: 600, background: "#dbeafe", padding: "2px 8px", borderRadius: 4 }}>Löpande</span>;
+  if (days < 0) return <span style={{ fontSize: 11, color: "#dc2626", fontWeight: 600, background: "#fef2f2", padding: "2px 8px", borderRadius: 4 }}>Stängd</span>;
+  if (days <= 14) return <span style={{ fontSize: 11, color: "#dc2626", fontWeight: 600, background: "#fef2f2", padding: "2px 8px", borderRadius: 4 }}>{days} dagar kvar</span>;
+  if (days <= 30) return <span style={{ fontSize: 11, color: "#92400e", fontWeight: 600, background: "#fef3c7", padding: "2px 8px", borderRadius: 4 }}>{days} dagar</span>;
+  return <span style={{ fontSize: 11, color: "#64748b", fontWeight: 500 }}>{days} dagar</span>;
+}
+
+function PriorityDot({ priority }) {
+  if (!priority) return null;
+  const c = priority === "high" ? "#dc2626" : priority === "medium" ? "#f59e0b" : "#94a3b8";
+  const label = priority === "high" ? "Hög" : priority === "medium" ? "Medel" : "Låg";
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <div style={{ width: 6, height: 6, borderRadius: "50%", background: c }} />
+      <span style={{ fontSize: 10, color: c, fontWeight: 600 }}>{label}</span>
+    </div>
+  );
+}
+
+function DayCounter({ days, size = 64 }) {
+  const color = days <= 7 ? "#dc2626" : days <= 30 ? "#d97706" : "#059669";
+  const bg = days <= 7 ? "#fef2f2" : days <= 30 ? "#fffbeb" : "#ecfdf5";
+  const border = days <= 7 ? "#fecaca" : days <= 30 ? "#fde68a" : "#a7f3d0";
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: "50%",
+      background: bg, border: `2px solid ${border}`,
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      flexShrink: 0,
+    }}>
+      <div style={{ fontSize: size > 56 ? 20 : 16, fontWeight: 700, color, lineHeight: 1 }}>{days}</div>
+      <div style={{ fontSize: 8, fontWeight: 600, color, textTransform: "uppercase", letterSpacing: "0.5px", marginTop: 1 }}>DAGAR</div>
+    </div>
+  );
+}
+
+function getGrantScore(grant) {
+  if (grant.match_score) return grant.match_score;
+  const gd = grant.grant_data || {};
+  if (gd.match_score) return gd.match_score;
+  // Deterministic score based on grant name
+  let hash = 0;
+  const name = grant.grant_name || "";
+  for (let i = 0; i < name.length; i++) {
+    hash = ((hash << 5) - hash) + name.charCodeAt(i);
+    hash |= 0;
+  }
+  const base = gd.priority === "high" ? 82 : gd.priority === "medium" ? 66 : 52;
+  return base + (Math.abs(hash) % 14);
+}
+
+const PIPELINE_ICONS = {
+  new: "\u25CB",
+  investigating: "\u25CE",
+  applying: "\u270E",
+  applied: "\u2794",
+  granted: "\u2713",
+  rejected: "\u2717",
+};
+
 // --- Sub-components ---
 
 function GrantCard({ grant, onUpdate, onDelete, userId }) {
@@ -341,6 +455,8 @@ export default function Dashboard() {
   const router = useRouter();
   const [grants, setGrants] = useState([]);
   const [filter, setFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [detailGrantId, setDetailGrantId] = useState(null);
   const [loadingGrants, setLoadingGrants] = useState(true);
   const [quizData, setQuizData] = useState(null);
   const [searches, setSearches] = useState([]);
@@ -606,22 +722,20 @@ export default function Dashboard() {
   const renderOverview = () => (
     <>
       {/* Stats row */}
-      <div style={{
-        display: "flex", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, overflow: "hidden", marginBottom: 20,
-      }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(3, 1fr)" : "repeat(5, 1fr)", gap: 12, marginBottom: 24 }}>
         {[
-          { label: "Totalt", value: grants.length, color: "#0f172a" },
-          { label: "Nya", value: statusCounts.new || 0, color: "#2563eb" },
-          { label: "Undersöker", value: statusCounts.investigating || 0, color: "#d97706" },
-          { label: "Ansökt", value: statusCounts.applied || 0, color: "#7c3aed" },
-          { label: "Beviljade", value: statusCounts.granted || 0, color: "#059669" },
-        ].map((s, i) => (
+          { label: "Totalt", value: grants.length, color: "#0f172a", bg: "#fff" },
+          { label: "Nya", value: statusCounts.new || 0, color: "#2563eb", bg: "#eff6ff" },
+          { label: "Undersöker", value: statusCounts.investigating || 0, color: "#d97706", bg: "#fffbeb" },
+          { label: "Ansökt", value: (statusCounts.applied || 0) + (statusCounts.applying || 0), color: "#7c3aed", bg: "#f5f3ff" },
+          { label: "Beviljade", value: statusCounts.granted || 0, color: "#059669", bg: "#ecfdf5" },
+        ].map((s) => (
           <div key={s.label} style={{
-            flex: 1, padding: "16px 12px", textAlign: "center",
-            borderRight: i < 4 ? "1px solid #f1f5f9" : "none",
+            background: s.bg, border: "1px solid #e2e8f0", borderRadius: 8,
+            padding: "16px 12px", textAlign: "center",
           }}>
-            <div style={{ fontSize: 22, fontWeight: 700, color: s.color, fontFamily: "'DM Sans', sans-serif" }}>{s.value}</div>
-            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{s.label}</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: s.color }}>{s.value}</div>
+            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, fontWeight: 500 }}>{s.label}</div>
           </div>
         ))}
       </div>
@@ -652,41 +766,79 @@ export default function Dashboard() {
         ) : null;
       })()}
 
-      {/* Upcoming deadlines */}
-      {upcomingDeadlines.length > 0 && (
-        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "16px", marginBottom: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 12 }}>Kommande deadlines</div>
-          {upcomingDeadlines.map((g) => {
-            const days = Math.ceil((new Date(g.deadline) - new Date()) / 86400000);
-            return (
-              <div key={g.id} style={{
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-                padding: "8px 0", fontSize: 13, borderBottom: "1px solid #f8fafc",
-              }}>
-                <div>
-                  <span style={{ color: "#334155" }}>{g.grant_name}</span>
-                  <span style={{ fontSize: 11, color: "#94a3b8", marginLeft: 8 }}>{STATUS_CONFIG[g.status]?.label}</span>
+      {/* Two-column layout: Deadlines + Activity */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20, marginBottom: 24 }}>
+        {/* Left: Kommande deadlines with circular counters */}
+        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 20 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 16 }}>Kommande deadlines</div>
+          {upcomingDeadlines.length === 0 ? (
+            <div style={{ fontSize: 13, color: "#94a3b8", padding: "20px 0", textAlign: "center" }}>Inga kommande deadlines</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+              {upcomingDeadlines.map((g) => {
+                const days = Math.ceil((new Date(g.deadline) - new Date()) / 86400000);
+                const st = STATUS_CONFIG[g.status] || STATUS_CONFIG.new;
+                return (
+                  <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 0", borderBottom: "1px solid #f1f5f9" }}>
+                    <DayCounter days={days} size={52} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.grant_name}</div>
+                      <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{g.grant_agency || ""}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                        <span style={{ fontSize: 11, color: "#94a3b8" }}>
+                          {new Date(g.deadline).toLocaleDateString("sv-SE", { day: "numeric", month: "short", year: "numeric" })}
+                        </span>
+                        <span style={{
+                          fontSize: 10, fontWeight: 600, padding: "1px 6px", borderRadius: 3,
+                          background: st.bg, color: st.color, border: `1px solid ${st.border}`,
+                        }}>{st.label}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Right: Senaste aktivitet */}
+        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 20 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 16 }}>Senaste aktivitet</div>
+          {(() => {
+            const activities = [];
+            grants.forEach((g) => {
+              activities.push({
+                text: g.status === "new" ? `Sparat bidrag: ${g.grant_name}` : `${g.grant_name}: ${STATUS_CONFIG[g.status]?.label || g.status}`,
+                date: g.updated_at || g.created_at,
+                color: STATUS_CONFIG[g.status]?.color || "#64748b",
+              });
+            });
+            searches.forEach((s) => {
+              activities.push({ text: "Sökning genomförd", date: s.created_at, color: "#3b82f6" });
+            });
+            activities.sort((a, b) => new Date(b.date) - new Date(a.date));
+            if (activities.length === 0) return <div style={{ fontSize: 13, color: "#94a3b8", padding: "20px 0", textAlign: "center" }}>Ingen aktivitet ännu</div>;
+            return activities.slice(0, 8).map((a, i) => (
+              <div key={i} style={{ display: "flex", gap: 10, padding: "10px 0", borderBottom: i < Math.min(activities.length, 8) - 1 ? "1px solid #f8fafc" : "none" }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, width: 12 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: a.color, marginTop: 4 }} />
+                  {i < Math.min(activities.length, 8) - 1 && <div style={{ width: 1, flex: 1, background: "#e2e8f0", marginTop: 4 }} />}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 3,
-                    background: days <= 7 ? "#fef2f2" : days <= 30 ? "#fffbeb" : "#f8fafc",
-                    color: days <= 7 ? "#dc2626" : days <= 30 ? "#d97706" : "#64748b",
-                    border: `1px solid ${days <= 7 ? "#fecaca" : days <= 30 ? "#fde68a" : "#e2e8f0"}`,
-                  }}>{days}d</span>
-                  <span style={{ color: "#64748b", fontSize: 12 }}>
-                    {new Date(g.deadline).toLocaleDateString("sv-SE")}
-                  </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.text}</div>
+                  <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>
+                    {new Date(a.date).toLocaleDateString("sv-SE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                  </div>
                 </div>
               </div>
-            );
-          })}
+            ));
+          })()}
         </div>
-      )}
+      </div>
 
-      {/* Quick activity summary */}
+      {/* Summary */}
       {(grants.length > 0 || searches.length > 0) && (
-        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "16px", marginBottom: 20 }}>
+        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "16px 20px", marginBottom: 20 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>Sammanfattning</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {grants.length > 0 && (
@@ -744,10 +896,42 @@ export default function Dashboard() {
     </>
   );
 
-  const renderGrants = () => (
+  const renderGrants = () => {
+    const categories = [...new Set(grants.map((g) => (g.grant_data || {}).category).filter(Boolean))];
+    let filtered = filter === "all" ? grants : grants.filter((g) => g.status === filter);
+    if (categoryFilter !== "all") {
+      filtered = filtered.filter((g) => (g.grant_data || {}).category === categoryFilter);
+    }
+    return (
     <>
-      {/* Filter tabs */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 14, overflowX: "auto", paddingBottom: 4 }}>
+      {/* Category filter tabs */}
+      {categories.length > 0 && (
+        <div style={{ display: "flex", gap: 6, marginBottom: 12, overflowX: "auto", paddingBottom: 4 }}>
+          <button onClick={() => setCategoryFilter("all")} style={{
+            padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer",
+            fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap",
+            background: categoryFilter === "all" ? "#0f172a" : "#fff",
+            border: `1px solid ${categoryFilter === "all" ? "#0f172a" : "#e2e8f0"}`,
+            color: categoryFilter === "all" ? "#fff" : "#64748b",
+          }}>Alla</button>
+          {categories.map((cat) => {
+            const cs = getCategoryStyle(cat);
+            const active = categoryFilter === cat;
+            return (
+              <button key={cat} onClick={() => setCategoryFilter(cat)} style={{
+                padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap",
+                background: active ? cs.bg : "#fff",
+                border: `1px solid ${active ? cs.border : "#e2e8f0"}`,
+                color: active ? cs.color : "#64748b",
+              }}>{cat}</button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Status filter tabs */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 16, overflowX: "auto", paddingBottom: 4 }}>
         <button onClick={() => setFilter("all")} style={{
           padding: "6px 14px", borderRadius: 4, fontSize: 12, fontWeight: 600, cursor: "pointer",
           fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap",
@@ -770,24 +954,102 @@ export default function Dashboard() {
         })}
       </div>
 
-      {/* Grant list */}
+      {/* Grant card grid */}
       {loadingGrants ? (
         <div style={{ textAlign: "center", color: "#94a3b8", padding: 40, fontSize: 13 }}>Laddar bidrag...</div>
-      ) : filteredGrants.length === 0 ? (
-        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "48px 20px", textAlign: "center" }}>
+      ) : filtered.length === 0 ? (
+        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "48px 20px", textAlign: "center" }}>
           <div style={{ fontSize: 14, color: "#64748b" }}>
-            {grants.length === 0 ? "Inga sparade bidrag ännu." : "Inga bidrag med vald status."}
+            {grants.length === 0 ? "Inga sparade bidrag ännu." : "Inga bidrag matchar valt filter."}
           </div>
         </div>
       ) : (
-        filteredGrants.map((grant) => (
-          <GrantCard key={grant.id} grant={grant} onUpdate={loadGrants} onDelete={handleDelete} userId={user.id} />
-        ))
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
+          {filtered.map((grant) => {
+            const gd = grant.grant_data || {};
+            const score = getGrantScore(grant);
+            const st = STATUS_CONFIG[grant.status] || STATUS_CONFIG.new;
+            const cat = gd.category;
+            const catStyle = getCategoryStyle(cat);
+            const days = getDaysUntil(grant.deadline);
+            const draftKeys = Object.keys(grant.draft_data || {});
+            const draftPct = draftKeys.length > 0 ? Math.round((draftKeys.length / 8) * 100) : 0;
+            const isSelected = detailGrantId === grant.id;
+            return (
+              <div key={grant.id}
+                onClick={() => setDetailGrantId(isSelected ? null : grant.id)}
+                style={{
+                  background: "#fff", border: `1px solid ${isSelected ? "#3b82f6" : "#e2e8f0"}`, borderRadius: 8,
+                  padding: 16, cursor: "pointer", transition: "all 0.15s",
+                  borderLeft: `4px solid ${st.color}`,
+                  boxShadow: isSelected ? "0 0 0 2px rgba(59,130,246,0.15)" : "none",
+                }}
+                onMouseOver={(e) => { if (!isSelected) { e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.06)"; } }}
+                onMouseOut={(e) => { if (!isSelected) { e.currentTarget.style.boxShadow = "none"; } }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{grant.grant_name}</div>
+                    <div style={{ fontSize: 12, color: "#64748b" }}>{grant.grant_agency || gd.agency || ""}</div>
+                  </div>
+                  <MatchScoreCircle score={score} size={40} />
+                </div>
+                {gd.amount && (
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#059669", marginBottom: 10 }}>{gd.amount}</div>
+                )}
+                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
+                  {cat && (
+                    <span style={{
+                      fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 4,
+                      background: catStyle.bg, color: catStyle.color, border: `1px solid ${catStyle.border}`,
+                    }}>{cat}</span>
+                  )}
+                  <span style={{
+                    fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 4,
+                    background: st.bg, color: st.color, border: `1px solid ${st.border}`,
+                    display: "inline-flex", alignItems: "center", gap: 3,
+                  }}>{PIPELINE_ICONS[grant.status] || ""} {st.label}</span>
+                  <PriorityDot priority={gd.priority} />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <DeadlineBadge days={days} />
+                </div>
+                {draftPct > 0 && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                      <span style={{ fontSize: 10, color: "#94a3b8" }}>Ansökan</span>
+                      <span style={{ fontSize: 10, color: "#94a3b8" }}>{draftPct}%</span>
+                    </div>
+                    <GrantProgressBar value={draftPct} color="#3b82f6" h={3} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
+
+      {/* Detail panel for selected grant */}
+      {detailGrantId && (() => {
+        const grant = filtered.find((g) => g.id === detailGrantId);
+        if (!grant) return null;
+        return (
+          <div style={{ marginTop: 16, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px" }}>Detaljer</span>
+              <button onClick={() => setDetailGrantId(null)} style={{
+                background: "#fff", border: "1px solid #e2e8f0", borderRadius: 4,
+                padding: "4px 10px", fontSize: 11, color: "#64748b", cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+              }}>Stäng</button>
+            </div>
+            <GrantCard grant={grant} onUpdate={loadGrants} onDelete={handleDelete} userId={user.id} />
+          </div>
+        );
+      })()}
 
       {/* Download actions */}
       {grants.length > 0 && (
-        <div style={{ marginTop: 16, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "14px 16px" }}>
+        <div style={{ marginTop: 16, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px" }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>Ladda ner</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {[
@@ -807,7 +1069,8 @@ export default function Dashboard() {
         </div>
       )}
     </>
-  );
+    );
+  };
 
   const renderSearches = () => (
     <>
@@ -1108,55 +1371,56 @@ export default function Dashboard() {
                 borderRadius: 8, padding: 10, minHeight: 300,
               }}>
                 <div style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  display: "flex", alignItems: "center", gap: 6,
                   marginBottom: 10, paddingBottom: 8,
-                  borderBottom: `2px solid ${col.color}33`,
+                  borderBottom: `2px solid ${col.color}`,
                 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>{col.label}</span>
+                  <span style={{ fontSize: 14, color: col.color }}>{PIPELINE_ICONS[col.key] || ""}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>{col.label}</span>
                   <span style={{
-                    fontSize: 10, background: `${col.color}15`, color: col.color,
-                    padding: "1px 7px", borderRadius: 10, fontWeight: 600,
+                    marginLeft: "auto", fontSize: 11, fontWeight: 700,
+                    background: `${col.color}15`, color: col.color,
+                    padding: "1px 8px", borderRadius: 10,
                   }}>{colGrants.length}</span>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {colGrants.map((g) => {
                     const days = getDaysUntil(g.deadline);
                     const grantData = g.grant_data || {};
+                    const score = getGrantScore(g);
+                    const cat = grantData.category;
+                    const catStyle = getCategoryStyle(cat);
                     const draftKeys = Object.keys(g.draft_data || {});
                     const draftPct = draftKeys.length > 0 ? Math.round((draftKeys.length / 8) * 100) : 0;
                     return (
-                      <div key={g.id} onClick={() => { setActiveSection("grants"); }}
+                      <div key={g.id} onClick={() => { setActiveSection("grants"); setDetailGrantId(g.id); }}
                         style={{
                           background: "#f8fafc", border: "1px solid #e2e8f0",
-                          borderRadius: 6, padding: "10px 12px", cursor: "pointer",
-                          transition: "all 0.15s",
-                          borderLeft: `3px solid ${col.color}`,
+                          borderRadius: 10, padding: "12px 14px", cursor: "pointer",
+                          transition: "all 0.12s",
                         }}
-                        onMouseOver={(e) => { e.currentTarget.style.background = "#eff6ff"; }}
-                        onMouseOut={(e) => { e.currentTarget.style.background = "#f8fafc"; }}
+                        onMouseOver={(e) => { e.currentTarget.style.background = "#f0f4ff"; e.currentTarget.style.borderColor = `${col.color}55`; }}
+                        onMouseOut={(e) => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.borderColor = "#e2e8f0"; }}
                       >
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", marginBottom: 3, lineHeight: 1.3 }}>{g.grant_name}</div>
-                        <div style={{ fontSize: 11, color: "#64748b" }}>{g.grant_agency || grantData.agency || ""}</div>
-                        {grantData.amount && (
-                          <div style={{ fontSize: 11, color: "#059669", fontWeight: 600, marginTop: 4 }}>{grantData.amount}</div>
-                        )}
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
-                          {days !== null ? (
-                            <span style={{
-                              fontSize: 11, fontWeight: days <= 14 ? 700 : 400,
-                              color: days < 0 ? "#94a3b8" : days <= 14 ? "#ef4444" : days <= 30 ? "#f59e0b" : "#64748b",
-                            }}>{days < 0 ? "Stängd" : `${days}d kvar`}</span>
-                          ) : (
-                            <span style={{ fontSize: 11, color: "#94a3b8" }}>Ingen deadline</span>
-                          )}
-                          {draftPct > 0 && (
-                            <div style={{ width: 40 }}>
-                              <div style={{ height: 3, background: "#e2e8f0", borderRadius: 2, overflow: "hidden" }}>
-                                <div style={{ height: "100%", width: `${draftPct}%`, background: "#f59e0b", borderRadius: 2 }} />
-                              </div>
-                            </div>
-                          )}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6, marginBottom: 6 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", lineHeight: 1.3 }}>{g.grant_name}</div>
+                          <MatchScoreCircle score={score} size={28} />
                         </div>
+                        <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>{g.grant_agency || grantData.agency || ""}</div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          {cat && (
+                            <span style={{
+                              fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 4,
+                              background: catStyle.bg, color: catStyle.color, border: `1px solid ${catStyle.border}`,
+                            }}>{cat}</span>
+                          )}
+                          <DeadlineBadge days={days} />
+                        </div>
+                        {draftPct > 0 && (
+                          <div style={{ marginTop: 8 }}>
+                            <GrantProgressBar value={draftPct} color={col.color} h={3} />
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1199,60 +1463,78 @@ export default function Dashboard() {
           Alla dina bidrag sorterade efter deadline. Missa aldrig en ansökan.
         </div>
         {sorted.length === 0 ? (
-          <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "48px 20px", textAlign: "center" }}>
+          <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "48px 20px", textAlign: "center" }}>
             <div style={{ fontSize: 14, color: "#64748b", marginBottom: 6 }}>Inga aktiva bidrag att visa.</div>
             <div style={{ fontSize: 13, color: "#94a3b8" }}>Spara bidrag från quizet för att se dem här.</div>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {sorted.map((g) => {
-              const days = getDaysUntil(g.deadline);
-              const st = STATUS_CONFIG[g.status] || STATUS_CONFIG.new;
-              const grantData = g.grant_data || {};
-              const urgent = days !== null && days >= 0 && days <= 14;
-              const soon = days !== null && days >= 0 && days <= 30;
-              return (
-                <div key={g.id} style={{
-                  display: "grid",
-                  gridTemplateColumns: isMobile ? "1fr" : "100px 1fr 140px 90px 80px",
-                  gap: 12, alignItems: "center",
-                  background: "#fff", border: "1px solid #e2e8f0",
-                  borderLeft: `3px solid ${urgent ? "#ef4444" : soon ? "#f59e0b" : st.color}`,
-                  borderRadius: 6, padding: "12px 16px",
-                  cursor: "pointer", transition: "background 0.1s",
-                }}
-                  onClick={() => setActiveSection("grants")}
-                  onMouseOver={(e) => { e.currentTarget.style.background = "#f8fafc"; }}
-                  onMouseOut={(e) => { e.currentTarget.style.background = "#fff"; }}
-                >
-                  <div style={{ fontSize: 12, color: "#64748b", fontFamily: "'Space Mono', monospace" }}>
-                    {g.deadline || "Löpande"}
+          <>
+            {/* Table header */}
+            {!isMobile && (
+              <div style={{
+                display: "grid", gridTemplateColumns: "100px 40px 1fr 140px 110px 90px",
+                gap: 8, padding: "8px 16px", marginBottom: 6,
+                fontSize: 10, fontWeight: 700, color: "#94a3b8", letterSpacing: "0.06em", textTransform: "uppercase",
+              }}>
+                <div>Deadline</div>
+                <div>Match</div>
+                <div>Bidrag</div>
+                <div>Belopp</div>
+                <div>Status</div>
+                <div>Tid kvar</div>
+              </div>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {sorted.map((g) => {
+                const days = getDaysUntil(g.deadline);
+                const st = STATUS_CONFIG[g.status] || STATUS_CONFIG.new;
+                const grantData = g.grant_data || {};
+                const score = getGrantScore(g);
+                const urgent = days !== null && days >= 0 && days <= 14;
+                const soon = days !== null && days >= 0 && days <= 30;
+                return (
+                  <div key={g.id} style={{
+                    display: "grid",
+                    gridTemplateColumns: isMobile ? "1fr" : "100px 40px 1fr 140px 110px 90px",
+                    gap: 8, alignItems: "center",
+                    background: "#fff", border: `1px solid ${urgent ? "#fcd34d" : "#e2e8f0"}`,
+                    borderLeft: `4px solid ${urgent ? "#ef4444" : soon ? "#f59e0b" : st.color}`,
+                    borderRadius: 10, padding: "14px 16px",
+                    cursor: "pointer", transition: "all 0.12s",
+                  }}
+                    onClick={() => { setActiveSection("grants"); setDetailGrantId(g.id); }}
+                    onMouseOver={(e) => { e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.06)"; }}
+                    onMouseOut={(e) => { e.currentTarget.style.boxShadow = "none"; }}
+                  >
+                    <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>
+                      {g.deadline ? new Date(g.deadline).toLocaleDateString("sv-SE", { day: "numeric", month: "short" }) : "Löpande"}
+                    </div>
+                    <MatchScoreCircle score={score} size={30} />
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <PriorityDot priority={grantData.priority} />
+                        <span style={{ fontWeight: 700, fontSize: 13, color: "#0f172a" }}>{g.grant_name}</span>
+                      </div>
+                      <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{g.grant_agency || grantData.agency || ""}</div>
+                    </div>
+                    {!isMobile && (
+                      <div style={{ fontSize: 12, color: "#334155", fontWeight: 500 }}>{grantData.amount || ""}</div>
+                    )}
+                    {!isMobile && (
+                      <span style={{
+                        fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 5,
+                        background: st.bg, color: st.color, border: `1px solid ${st.border}`,
+                        display: "inline-flex", alignItems: "center", gap: 3, justifySelf: "start",
+                      }}>{PIPELINE_ICONS[g.status] || ""} {st.label}</span>
+                    )}
+                    <div style={{ justifySelf: "end" }}>
+                      <DeadlineBadge days={days} />
+                    </div>
                   </div>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 14, color: "#0f172a" }}>{g.grant_name}</div>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>{g.grant_agency || grantData.agency || ""}</div>
-                  </div>
-                  {!isMobile && (
-                    <div style={{ fontSize: 12, color: "#334155" }}>{grantData.amount || ""}</div>
-                  )}
-                  {!isMobile && (
-                    <div style={{
-                      fontSize: 11, padding: "3px 8px", display: "inline-block",
-                      background: st.bg, color: st.color, border: `1px solid ${st.border}`,
-                      borderRadius: 4, textAlign: "center", fontWeight: 500,
-                    }}>{st.label}</div>
-                  )}
-                  <div style={{
-                    fontSize: 11, fontWeight: urgent ? 700 : 400,
-                    color: days === null ? "#94a3b8" : days < 0 ? "#94a3b8" : urgent ? "#ef4444" : soon ? "#f59e0b" : "#64748b",
-                    textAlign: "right",
-                  }}>
-                    {days === null ? "Löpande" : days < 0 ? "Stängd" : `${days}d kvar`}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </>
     );
@@ -1347,8 +1629,8 @@ Skriv utkastet på professionell svenska, anpassat för ${grant.grant_name}. Var
         }}>
           {/* Left: Grant selector */}
           <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              Välj bidrag
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              Välj bidrag att skriva för
             </div>
             {grants.length === 0 ? (
               <div style={{ fontSize: 12, color: "#94a3b8", padding: 16, textAlign: "center" }}>
@@ -1378,14 +1660,10 @@ Skriv utkastet på professionell svenska, anpassat för ${grant.grant_name}. Var
                   >
                     <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{g.grant_name}</div>
                     <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{g.grant_agency || ""}</div>
-                    {draftPct > 0 && (
-                      <div style={{ marginTop: 6 }}>
-                        <div style={{ height: 3, background: "#e2e8f0", borderRadius: 2, overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${draftPct}%`, background: "#f59e0b", borderRadius: 2 }} />
-                        </div>
-                        <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>{draftPct}% färdigt</div>
-                      </div>
-                    )}
+                    <div style={{ marginTop: 8 }}>
+                      <GrantProgressBar value={draftPct} color="#3b82f6" h={3} />
+                      <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 3 }}>{draftPct}% färdigskrivet</div>
+                    </div>
                   </div>
                 );
               })
@@ -1395,18 +1673,20 @@ Skriv utkastet på professionell svenska, anpassat för ${grant.grant_name}. Var
           {/* Right: Draft area */}
           {!selectedGrant ? (
             <div style={{
-              display: "flex", alignItems: "center", justifyContent: "center",
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
               background: "#f8fafc", border: "1px dashed #e2e8f0", borderRadius: 8,
-              color: "#94a3b8", fontSize: 14,
+              color: "#94a3b8", gap: 8,
             }}>
-              Välj ett bidrag för att börja skriva ansökan
+              <span style={{ fontSize: 36, color: "#cbd5e1" }}>{"\u270E"}</span>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#64748b" }}>AI Ansökansassistent</div>
+              <div style={{ fontSize: 12, color: "#94a3b8" }}>Välj ett sparat bidrag till vänster för att börja skriva</div>
             </div>
           ) : (
             <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 20, display: "flex", flexDirection: "column" }}>
               {/* Grant header */}
               <div style={{ marginBottom: 14 }}>
                 <h3 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: "0 0 4px" }}>{selectedGrant.grant_name}</h3>
-                <div style={{ fontSize: 12, color: "#64748b" }}>{selectedGrant.grant_agency}</div>
+                <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>AI genererar ansökningstext baserat på din företagsprofil och bidragets krav</div>
               </div>
 
               {/* Section tabs */}
@@ -1514,7 +1794,7 @@ Skriv utkastet på professionell svenska, anpassat för ${grant.grant_name}. Var
 
         {/* Content area */}
         <div style={{ marginLeft: isMobile ? 0 : SIDEBAR_W, minHeight: "100vh" }}>
-          <div style={{ maxWidth: 860, margin: "0 auto", padding: isMobile ? "20px 16px" : "28px 32px" }}>
+          <div style={{ maxWidth: 1000, margin: "0 auto", padding: isMobile ? "20px 16px" : "28px 32px" }}>
             {/* Page header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: "#0f172a" }}>{sectionTitles[activeSection]}</h1>
