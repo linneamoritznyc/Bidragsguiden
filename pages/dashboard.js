@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { useAuth } from "../lib/auth";
@@ -354,6 +354,7 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -361,6 +362,18 @@ export default function Dashboard() {
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
+  // Close user menu on click outside
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const handler = (e) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [userMenuOpen]);
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -380,6 +393,7 @@ export default function Dashboard() {
       setSearches(userSearches);
     } catch (err) {
       console.error("Failed to load dashboard data:", err);
+      showToast("Kunde inte ladda data. Försök ladda om sidan.", "error");
     } finally {
       setLoadingGrants(false);
     }
@@ -429,8 +443,14 @@ export default function Dashboard() {
 
   if (loading || !user) {
     return (
-      <div style={{ minHeight: "100vh", background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8", fontFamily: "'DM Sans', sans-serif" }}>
-        Laddar...
+      <div style={{ minHeight: "100vh", background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{
+          width: 32, height: 32, border: "3px solid #e2e8f0",
+          borderTop: "3px solid #3b82f6", borderRadius: "50%",
+          animation: "dashSpin 0.8s linear infinite",
+        }} />
+        <span style={{ color: "#94a3b8", fontSize: 13 }}>Laddar...</span>
+        <style>{`@keyframes dashSpin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
@@ -506,7 +526,7 @@ export default function Dashboard() {
       </nav>
 
       {/* User menu with avatar dropdown */}
-      <div style={{ padding: "12px 20px", borderTop: "1px solid rgba(255,255,255,0.06)", position: "relative" }}>
+      <div ref={userMenuRef} style={{ padding: "12px 20px", borderTop: "1px solid rgba(255,255,255,0.06)", position: "relative" }}>
         <button
           onClick={() => setUserMenuOpen((v) => !v)}
           style={{

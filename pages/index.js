@@ -36,15 +36,19 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange, saved, onDismis
   const [questionInput, setQuestionInput] = useState("");
   const [asking, setAsking] = useState(false);
   const [answer, setAnswer] = useState(benefit.user_answer || null);
+  const [lastQuestion, setLastQuestion] = useState(null);
 
   const handleAsk = async () => {
     if (!questionInput.trim() || asking) return;
+    const q = questionInput.trim();
     setAsking(true);
+    setLastQuestion(q);
     try {
-      const result = await onAskQuestion(benefit, questionInput.trim());
+      const result = await onAskQuestion(benefit, q);
       setAnswer(result);
+      setQuestionInput("");
     } catch {
-      setAnswer("Kunde inte hämta svar just nu. Försök igen.");
+      setAnswer("Kunde inte hämta svar just nu. Forsok igen.");
     } finally {
       setAsking(false);
     }
@@ -207,8 +211,13 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange, saved, onDismis
             fontSize: 11, color: "#38bdf8", textTransform: "uppercase",
             letterSpacing: "0.5px", marginBottom: 6, fontWeight: 700,
           }}>
-            Svar på din fråga
+            Svar
           </div>
+          {lastQuestion && (
+            <div style={{ fontSize: 13, color: "#64748b", marginBottom: 6, fontStyle: "italic" }}>
+              &quot;{lastQuestion}&quot;
+            </div>
+          )}
           <div style={{ fontSize: 14, color: "#e2e8f0", lineHeight: 1.7 }}>
             {answer}
           </div>

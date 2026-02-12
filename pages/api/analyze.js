@@ -176,7 +176,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Missing or invalid prompt" });
   }
 
-  if (prompt.length > 10000) {
+  if (prompt.length > 25000) {
     return res.status(400).json({ error: "Prompt too long" });
   }
 
