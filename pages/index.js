@@ -48,7 +48,7 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange, saved, onDismis
       setAnswer(result);
       setQuestionInput("");
     } catch {
-      setAnswer("Kunde inte hämta svar just nu. Forsok igen.");
+      setAnswer("Kunde inte hämta svar just nu. Försök igen.");
     } finally {
       setAsking(false);
     }

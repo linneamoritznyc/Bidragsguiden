@@ -17,6 +17,7 @@ import {
   getQuizAnswers,
   getUserSearches,
   deleteUserSearch,
+  saveDraftSection,
 } from "../lib/dashboard";
 
 const STATUS_CONFIG = {
@@ -467,6 +468,9 @@ export default function Dashboard() {
   const navItems = [
     { key: "overview", label: "Översikt" },
     { key: "grants", label: "Mina bidrag", count: grants.length },
+    { key: "pipeline", label: "Pipeline" },
+    { key: "timeline", label: "Tidslinje" },
+    { key: "ai-draft", label: "AI Ansökan", pro: true },
     { key: "searches", label: "Sökhistorik", count: searches.length },
     { key: "profile", label: "Företagsprofil" },
     { key: "resources", label: "Resurser" },
@@ -507,7 +511,12 @@ export default function Dashboard() {
               cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
               transition: "all 0.15s",
             }}>
-              <span>{item.label}</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {item.label}
+                {item.pro && (
+                  <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, background: "rgba(245,158,11,0.15)", color: "#f59e0b", fontWeight: 700, letterSpacing: "0.05em" }}>PRO</span>
+                )}
+              </span>
               {item.count > 0 && (
                 <span style={{ fontSize: 10, color: "#64748b", background: "rgba(255,255,255,0.06)", padding: "1px 7px", borderRadius: 8 }}>{item.count}</span>
               )}
@@ -1062,7 +1071,405 @@ export default function Dashboard() {
     </>
   );
 
-  const sectionTitles = { overview: "Översikt", grants: "Mina bidrag", searches: "Sökhistorik", profile: "Företagsprofil", resources: "Resurser" };
+  // --- Pipeline (kanban) view ---
+  const PIPELINE_COLS = [
+    { key: "new", label: "Hittade", color: "#64748b" },
+    { key: "investigating", label: "Undersöker", color: "#6366f1" },
+    { key: "applying", label: "Skriver ansökan", color: "#f59e0b" },
+    { key: "applied", label: "Inskickad", color: "#10b981" },
+    { key: "granted", label: "Beviljad", color: "#22c55e" },
+    { key: "rejected", label: "Nekad", color: "#ef4444" },
+  ];
+
+  const getDaysUntil = (dateStr) => {
+    if (!dateStr) return null;
+    return Math.ceil((new Date(dateStr) - new Date()) / (1000 * 60 * 60 * 24));
+  };
+
+  const renderPipeline = () => {
+    const cols = PIPELINE_COLS.filter(
+      (c) => grants.some((g) => g.status === c.key) || ["new", "investigating", "applying", "applied"].includes(c.key)
+    );
+    return (
+      <>
+        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16, lineHeight: 1.5 }}>
+          Dra dina bidrag genom processen -- från upptäckt till ansökan.
+        </div>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(${cols.length}, minmax(160px, 1fr))`,
+          gap: 10, overflowX: "auto", paddingBottom: 8,
+        }}>
+          {cols.map((col) => {
+            const colGrants = grants.filter((g) => g.status === col.key);
+            return (
+              <div key={col.key} style={{
+                background: "#fff", border: "1px solid #e2e8f0",
+                borderRadius: 8, padding: 10, minHeight: 300,
+              }}>
+                <div style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  marginBottom: 10, paddingBottom: 8,
+                  borderBottom: `2px solid ${col.color}33`,
+                }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>{col.label}</span>
+                  <span style={{
+                    fontSize: 10, background: `${col.color}15`, color: col.color,
+                    padding: "1px 7px", borderRadius: 10, fontWeight: 600,
+                  }}>{colGrants.length}</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {colGrants.map((g) => {
+                    const days = getDaysUntil(g.deadline);
+                    const grantData = g.grant_data || {};
+                    const draftKeys = Object.keys(g.draft_data || {});
+                    const draftPct = draftKeys.length > 0 ? Math.round((draftKeys.length / 8) * 100) : 0;
+                    return (
+                      <div key={g.id} onClick={() => { setActiveSection("grants"); }}
+                        style={{
+                          background: "#f8fafc", border: "1px solid #e2e8f0",
+                          borderRadius: 6, padding: "10px 12px", cursor: "pointer",
+                          transition: "all 0.15s",
+                          borderLeft: `3px solid ${col.color}`,
+                        }}
+                        onMouseOver={(e) => { e.currentTarget.style.background = "#eff6ff"; }}
+                        onMouseOut={(e) => { e.currentTarget.style.background = "#f8fafc"; }}
+                      >
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", marginBottom: 3, lineHeight: 1.3 }}>{g.grant_name}</div>
+                        <div style={{ fontSize: 11, color: "#64748b" }}>{g.grant_agency || grantData.agency || ""}</div>
+                        {grantData.amount && (
+                          <div style={{ fontSize: 11, color: "#059669", fontWeight: 600, marginTop: 4 }}>{grantData.amount}</div>
+                        )}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+                          {days !== null ? (
+                            <span style={{
+                              fontSize: 11, fontWeight: days <= 14 ? 700 : 400,
+                              color: days < 0 ? "#94a3b8" : days <= 14 ? "#ef4444" : days <= 30 ? "#f59e0b" : "#64748b",
+                            }}>{days < 0 ? "Stängd" : `${days}d kvar`}</span>
+                          ) : (
+                            <span style={{ fontSize: 11, color: "#94a3b8" }}>Ingen deadline</span>
+                          )}
+                          {draftPct > 0 && (
+                            <div style={{ width: 40 }}>
+                              <div style={{ height: 3, background: "#e2e8f0", borderRadius: 2, overflow: "hidden" }}>
+                                <div style={{ height: "100%", width: `${draftPct}%`, background: "#f59e0b", borderRadius: 2 }} />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {colGrants.length === 0 && (
+                    <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", padding: 20 }}>Inga bidrag</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {grants.length === 0 && (
+          <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "48px 20px", textAlign: "center", marginTop: 16 }}>
+            <div style={{ fontSize: 14, color: "#64748b", marginBottom: 6 }}>Inga sparade bidrag ännu.</div>
+            <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 16 }}>Gör quizet för att hitta bidrag och börja bygga din pipeline.</div>
+            <a href="/" style={{
+              display: "inline-block", padding: "10px 24px", borderRadius: 6,
+              background: "#3b82f6", color: "#fff", fontWeight: 600, textDecoration: "none", fontSize: 13, fontFamily: "'DM Sans', sans-serif",
+            }}>Gör nytt quiz</a>
+          </div>
+        )}
+      </>
+    );
+  };
+
+  // --- Timeline (deadline) view ---
+  const renderTimeline = () => {
+    const sorted = [...grants]
+      .filter((g) => g.status !== "archived" && g.status !== "rejected")
+      .sort((a, b) => {
+        if (!a.deadline && !b.deadline) return 0;
+        if (!a.deadline) return 1;
+        if (!b.deadline) return -1;
+        return new Date(a.deadline) - new Date(b.deadline);
+      });
+
+    return (
+      <>
+        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16, lineHeight: 1.5 }}>
+          Alla dina bidrag sorterade efter deadline. Missa aldrig en ansökan.
+        </div>
+        {sorted.length === 0 ? (
+          <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "48px 20px", textAlign: "center" }}>
+            <div style={{ fontSize: 14, color: "#64748b", marginBottom: 6 }}>Inga aktiva bidrag att visa.</div>
+            <div style={{ fontSize: 13, color: "#94a3b8" }}>Spara bidrag från quizet för att se dem här.</div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {sorted.map((g) => {
+              const days = getDaysUntil(g.deadline);
+              const st = STATUS_CONFIG[g.status] || STATUS_CONFIG.new;
+              const grantData = g.grant_data || {};
+              const urgent = days !== null && days >= 0 && days <= 14;
+              const soon = days !== null && days >= 0 && days <= 30;
+              return (
+                <div key={g.id} style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr" : "100px 1fr 140px 90px 80px",
+                  gap: 12, alignItems: "center",
+                  background: "#fff", border: "1px solid #e2e8f0",
+                  borderLeft: `3px solid ${urgent ? "#ef4444" : soon ? "#f59e0b" : st.color}`,
+                  borderRadius: 6, padding: "12px 16px",
+                  cursor: "pointer", transition: "background 0.1s",
+                }}
+                  onClick={() => setActiveSection("grants")}
+                  onMouseOver={(e) => { e.currentTarget.style.background = "#f8fafc"; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = "#fff"; }}
+                >
+                  <div style={{ fontSize: 12, color: "#64748b", fontFamily: "'Space Mono', monospace" }}>
+                    {g.deadline || "Löpande"}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: "#0f172a" }}>{g.grant_name}</div>
+                    <div style={{ fontSize: 11, color: "#64748b" }}>{g.grant_agency || grantData.agency || ""}</div>
+                  </div>
+                  {!isMobile && (
+                    <div style={{ fontSize: 12, color: "#334155" }}>{grantData.amount || ""}</div>
+                  )}
+                  {!isMobile && (
+                    <div style={{
+                      fontSize: 11, padding: "3px 8px", display: "inline-block",
+                      background: st.bg, color: st.color, border: `1px solid ${st.border}`,
+                      borderRadius: 4, textAlign: "center", fontWeight: 500,
+                    }}>{st.label}</div>
+                  )}
+                  <div style={{
+                    fontSize: 11, fontWeight: urgent ? 700 : 400,
+                    color: days === null ? "#94a3b8" : days < 0 ? "#94a3b8" : urgent ? "#ef4444" : soon ? "#f59e0b" : "#64748b",
+                    textAlign: "right",
+                  }}>
+                    {days === null ? "Löpande" : days < 0 ? "Stängd" : `${days}d kvar`}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </>
+    );
+  };
+
+  // --- AI Application Drafter ---
+  const AI_SECTIONS = [
+    { id: "summary", label: "Sammanfattning" },
+    { id: "problem", label: "Problembeskrivning" },
+    { id: "solution", label: "Lösningsbeskrivning" },
+    { id: "market", label: "Marknad och målgrupp" },
+    { id: "team", label: "Team och kompetens" },
+    { id: "budget", label: "Budget och finansiering" },
+    { id: "impact", label: "Förväntad effekt" },
+    { id: "timeline", label: "Tidplan" },
+  ];
+
+  const [draftGrant, setDraftGrant] = useState(null);
+  const [draftSection, setDraftSection] = useState("problem");
+  const [draftText, setDraftText] = useState("");
+  const [draftGenerating, setDraftGenerating] = useState(false);
+
+  const generateDraft = async () => {
+    const grant = grants.find((g) => g.id === draftGrant);
+    if (!grant) return;
+    setDraftGenerating(true);
+    setDraftText("");
+    const grantData = grant.grant_data || {};
+    const companyProfile = quizData?.quiz_answers || {};
+    const sectionLabel = AI_SECTIONS.find((s) => s.id === draftSection)?.label || draftSection;
+
+    const prompt = `Du är en expert på att skriva ansökningar för svenska företag. Skriv ett utkast för sektionen "${sectionLabel}" i en ansökan till ${grant.grant_name} (${grant.grant_agency || grantData.agency || "okänd myndighet"}).
+
+BIDRAGET:
+- Namn: ${grant.grant_name}
+- Myndighet: ${grant.grant_agency || grantData.agency || "ej angivet"}
+- Beskrivning: ${grantData.description || "ej angivet"}
+- Belopp: ${grantData.amount || "ej angivet"}
+- Krav: ${grantData.eligibility_summary || "ej angivet"}
+- Dokument: ${grantData.required_docs || "ej angivet"}
+
+FÖRETAGET:
+- Bolagsform: ${companyProfile.company_type || "ej angivet"}
+- Företagets ålder: ${companyProfile.company_age || "ej angivet"}
+- Anställda: ${companyProfile.employees || "ej angivet"}
+- Region: ${companyProfile.region || "ej angivet"}
+- Omsättning: ${companyProfile.revenue || "ej angivet"}
+- Bransch: ${Array.isArray(companyProfile.industry) ? companyProfile.industry.join(", ") : companyProfile.industry || "ej angivet"}
+- Behov: ${Array.isArray(companyProfile.needs) ? companyProfile.needs.join(", ") : companyProfile.needs || "ej angivet"}
+
+Skriv utkastet på professionell svenska, anpassat för ${grant.grant_name}. Var konkret, specifik och övertygande. Använd INGA emojis. Svaret ska vara ren text (inte JSON), 200-400 ord.`;
+
+    try {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          sessionId: undefined,
+          userId: user?.id || undefined,
+          quickQuestion: true,
+        }),
+      });
+      if (!response.ok) throw new Error("Failed");
+      const data = await response.json();
+      const text = data.content
+        .map((item) => (item.type === "text" ? item.text : ""))
+        .filter(Boolean)
+        .join("\n");
+      setDraftText(text);
+      // Auto-save to database
+      await saveDraftSection({ grantId: grant.id, section: draftSection, content: text });
+      showToast("Utkast genererat och sparat.", "success");
+    } catch {
+      showToast("Kunde inte generera utkast. Försök igen.", "error");
+    } finally {
+      setDraftGenerating(false);
+    }
+  };
+
+  const renderAIDraft = () => {
+    const selectedGrant = grants.find((g) => g.id === draftGrant);
+    return (
+      <>
+        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16, lineHeight: 1.5 }}>
+          Välj ett bidrag och låt AI:n skriva utkast för din ansökan -- sektion för sektion.
+        </div>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "260px 1fr",
+          gap: 16, minHeight: 400,
+        }}>
+          {/* Left: Grant selector */}
+          <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Välj bidrag
+            </div>
+            {grants.length === 0 ? (
+              <div style={{ fontSize: 12, color: "#94a3b8", padding: 16, textAlign: "center" }}>
+                Inga sparade bidrag. Gör quizet först.
+              </div>
+            ) : (
+              grants.map((g) => {
+                const active = draftGrant === g.id;
+                const draftKeys = Object.keys(g.draft_data || {});
+                const draftPct = draftKeys.length > 0 ? Math.round((draftKeys.length / 8) * 100) : 0;
+                return (
+                  <div key={g.id}
+                    onClick={() => {
+                      setDraftGrant(g.id);
+                      // Load existing draft text for selected section
+                      const existing = (g.draft_data || {})[draftSection];
+                      setDraftText(existing || "");
+                    }}
+                    style={{
+                      padding: "10px 12px", borderRadius: 6, marginBottom: 4,
+                      background: active ? "#eff6ff" : "transparent",
+                      border: `1px solid ${active ? "#bfdbfe" : "transparent"}`,
+                      cursor: "pointer", transition: "background 0.1s",
+                    }}
+                    onMouseOver={(e) => { if (!active) e.currentTarget.style.background = "#f8fafc"; }}
+                    onMouseOut={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{g.grant_name}</div>
+                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{g.grant_agency || ""}</div>
+                    {draftPct > 0 && (
+                      <div style={{ marginTop: 6 }}>
+                        <div style={{ height: 3, background: "#e2e8f0", borderRadius: 2, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${draftPct}%`, background: "#f59e0b", borderRadius: 2 }} />
+                        </div>
+                        <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>{draftPct}% färdigt</div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Right: Draft area */}
+          {!selectedGrant ? (
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: "#f8fafc", border: "1px dashed #e2e8f0", borderRadius: 8,
+              color: "#94a3b8", fontSize: 14,
+            }}>
+              Välj ett bidrag för att börja skriva ansökan
+            </div>
+          ) : (
+            <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 20, display: "flex", flexDirection: "column" }}>
+              {/* Grant header */}
+              <div style={{ marginBottom: 14 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: "0 0 4px" }}>{selectedGrant.grant_name}</h3>
+                <div style={{ fontSize: 12, color: "#64748b" }}>{selectedGrant.grant_agency}</div>
+              </div>
+
+              {/* Section tabs */}
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 12 }}>
+                {AI_SECTIONS.map((s) => {
+                  const active = draftSection === s.id;
+                  const hasDraft = !!(selectedGrant.draft_data || {})[s.id];
+                  return (
+                    <button key={s.id}
+                      onClick={() => {
+                        setDraftSection(s.id);
+                        const existing = (selectedGrant.draft_data || {})[s.id];
+                        setDraftText(existing || "");
+                      }}
+                      style={{
+                        background: active ? "#eff6ff" : hasDraft ? "#f0fdf4" : "#f8fafc",
+                        border: `1px solid ${active ? "#bfdbfe" : hasDraft ? "#bbf7d0" : "#e2e8f0"}`,
+                        color: active ? "#2563eb" : hasDraft ? "#059669" : "#64748b",
+                        borderRadius: 4, padding: "5px 10px", fontSize: 11,
+                        fontWeight: active ? 600 : 400, cursor: "pointer",
+                        fontFamily: "'DM Sans', sans-serif",
+                      }}
+                    >{s.label}{hasDraft ? " (klar)" : ""}</button>
+                  );
+                })}
+              </div>
+
+              {/* Generate button */}
+              <button onClick={generateDraft} disabled={draftGenerating}
+                style={{
+                  background: draftGenerating ? "#f1f5f9" : "linear-gradient(135deg, #f59e0b, #ef4444)",
+                  border: "none", color: draftGenerating ? "#94a3b8" : "#fff",
+                  borderRadius: 6, padding: "10px 20px", fontSize: 13,
+                  fontWeight: 600, cursor: draftGenerating ? "wait" : "pointer",
+                  fontFamily: "'DM Sans', sans-serif", marginBottom: 12,
+                  transition: "all 0.2s",
+                }}
+              >
+                {draftGenerating ? "Genererar..." : `Generera ${AI_SECTIONS.find((s) => s.id === draftSection)?.label || ""}`}
+              </button>
+
+              {/* Draft text area */}
+              <div style={{
+                flex: 1, background: "#f8fafc", border: "1px solid #e2e8f0",
+                borderRadius: 6, padding: 16, fontSize: 13, lineHeight: 1.7,
+                color: "#334155", whiteSpace: "pre-wrap", overflow: "auto",
+                minHeight: 300, fontFamily: "'DM Sans', sans-serif",
+              }}>
+                {draftText || (
+                  <span style={{ color: "#94a3b8" }}>
+                    Klicka &quot;Generera&quot; för att skapa ett AI-utkast för sektionen &quot;{AI_SECTIONS.find((s) => s.id === draftSection)?.label}&quot;.
+                    AI:n använder din företagsprofil och bidragets krav för att skapa ett anpassat utkast.
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </>
+    );
+  };
+
+  const sectionTitles = { overview: "Översikt", grants: "Mina bidrag", pipeline: "Pipeline", timeline: "Tidslinje", "ai-draft": "AI Ansökan", searches: "Sökhistorik", profile: "Företagsprofil", resources: "Resurser" };
 
   return (
     <>
@@ -1116,6 +1523,9 @@ export default function Dashboard() {
             {/* Section content */}
             {activeSection === "overview" && renderOverview()}
             {activeSection === "grants" && renderGrants()}
+            {activeSection === "pipeline" && renderPipeline()}
+            {activeSection === "timeline" && renderTimeline()}
+            {activeSection === "ai-draft" && renderAIDraft()}
             {activeSection === "searches" && renderSearches()}
             {activeSection === "profile" && renderProfile()}
             {activeSection === "resources" && renderResources()}
