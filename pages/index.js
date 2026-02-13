@@ -305,19 +305,81 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange, saved, onDismis
           </button>
           <button
             onClick={() => {
-              if (onDismiss) onDismiss(index, benefit.name);
+              if (onDismiss) {
+                // Pass reason along when dismissing
+                if (reasonInput.trim()) {
+                  onFeedbackChange(index, { eligible: "no", reason: reasonInput.trim() });
+                }
+                onDismiss(index, benefit.name);
+              }
             }}
             style={{
               flex: 1, padding: "10px", borderRadius: 8, border: "none",
               fontSize: 12, fontWeight: 600, cursor: "pointer",
               fontFamily: "'DM Sans', sans-serif",
-              background: "rgba(255,255,255,0.04)",
-              color: "#64748b",
+              background: eligibility === "no" ? "rgba(239, 68, 68, 0.15)" : "rgba(255,255,255,0.04)",
+              color: eligibility === "no" ? "#ef4444" : "#64748b",
               transition: "all 0.2s",
             }}
           >
             Inte aktuellt
           </button>
+        </div>
+
+        {/* Comment / thought input */}
+        <div style={{ marginTop: 8 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              value={reasonInput}
+              onChange={(e) => setReasonInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && reasonInput.trim()) {
+                  onFeedbackChange(index, {
+                    eligible: eligibility || "unsure",
+                    reason: reasonInput.trim(),
+                  });
+                }
+              }}
+              placeholder="Lämna en kommentar eller tanke om detta bidrag..."
+              style={{
+                flex: 1, padding: "9px 12px", borderRadius: 8,
+                border: "1px solid rgba(255,255,255,0.08)",
+                background: "rgba(255,255,255,0.02)", color: "#e2e8f0",
+                fontSize: 12, fontFamily: "'DM Sans', sans-serif",
+                outline: "none",
+              }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(148, 163, 184, 0.3)"; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}
+            />
+            {reasonInput.trim() && (
+              <button
+                onClick={() => {
+                  onFeedbackChange(index, {
+                    eligible: eligibility || "unsure",
+                    reason: reasonInput.trim(),
+                  });
+                }}
+                style={{
+                  padding: "9px 14px", borderRadius: 8,
+                  background: "rgba(56, 189, 248, 0.15)",
+                  border: "1px solid rgba(56, 189, 248, 0.3)",
+                  color: "#38bdf8", fontSize: 12, fontWeight: 600,
+                  cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                  transition: "all 0.2s", whiteSpace: "nowrap",
+                }}
+              >Spara</button>
+            )}
+          </div>
+          {feedback?.reason && (
+            <div style={{
+              marginTop: 6, padding: "6px 10px", borderRadius: 6,
+              background: "rgba(148, 163, 184, 0.06)",
+              border: "1px solid rgba(148, 163, 184, 0.1)",
+              fontSize: 12, color: "#94a3b8", fontStyle: "italic",
+            }}>
+              Din kommentar: &quot;{feedback.reason}&quot;
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -475,7 +537,9 @@ export default function Home() {
   // Dismiss a grant: hide it and remove from dashboard
   const handleDismissGrant = (index, grantName) => {
     setDismissedGrants((prev) => new Set([...prev, grantName]));
-    handleFeedbackChange(index, { eligible: "no", reason: "" });
+    // Preserve any reason the user typed before dismissing
+    const existingReason = feedback[index]?.reason || "";
+    handleFeedbackChange(index, { eligible: "no", reason: existingReason });
     // Remove from dashboard if user is logged in
     if (user?.id && grantName) {
       deleteSavedGrantByName({ userId: user.id, grantName }).catch(() => {});
