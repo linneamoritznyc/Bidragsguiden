@@ -47,10 +47,11 @@ export default function Login() {
   return (
     <>
       <Head>
-        <title>Logga in -- Bidragsguiden</title>
+        <title>Logga in — Bidragsguiden</title>
+        <meta name="description" content="Logga in på Bidragsguiden för att spara bidrag, skapa checklistor och få 5 sökningar per dag." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+        <meta property="og:title" content="Logga in — Bidragsguiden" />
+        <meta property="og:description" content="Skapa ett gratis konto och spara dina bidrag med checklistor och deadlines." />
       </Head>
 
       <div style={{

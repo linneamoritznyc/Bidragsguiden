@@ -56,3 +56,19 @@ body {
   background: rgba(56, 189, 248, 0.3);
   color: #e2e8f0;
 }
+
+/* Responsive adjustments for mobile */
+@media (max-width: 480px) {
+  button {
+    min-height: 40px;
+  }
+}
+
+/* Focus styles for accessibility */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.6);
+  outline-offset: 2px;
+}

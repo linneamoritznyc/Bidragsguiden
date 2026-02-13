@@ -497,6 +497,15 @@ export default function Home() {
     loadExclusions();
   }, [user]);
 
+  // Auto-scroll to results when they finish loading
+  useEffect(() => {
+    if (result && !loading && !refining && resultRef.current) {
+      setTimeout(() => {
+        resultRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 400);
+    }
+  }, [result, loading, refining]);
+
   const refreshHistory = useCallback(async () => {
     if (sessionId) {
       const hist = await getSearchHistory(sessionId);
@@ -1362,9 +1371,18 @@ ${kommunData.benefits.map((b) => `- ${b.name} (${b.agency}): ${b.description}`).
     <>
       <Head>
         <title>Bidragsguiden — Hitta bidrag och stöd för ditt företag</title>
-        <meta name="description" content="AI-driven guide som hittar alla svenska bidrag, stöd och finansieringsmöjligheter för ditt företag. Alla bolagsformer. Ingen data sparas." />
+        <meta name="description" content="AI-driven guide som hittar alla svenska bidrag, stöd och finansieringsmöjligheter för ditt företag. Svara på några frågor — få en komplett lista från Tillväxtverket, Vinnova, Almi, EU-fonder och fler." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <meta name="keywords" content="bidrag, företagsstöd, företag, Sverige, Tillväxtverket, Vinnova, Almi, EU-fonder, finansiering, AI" />
+
+        {/* Open Graph */}
+        <meta property="og:title" content="Bidragsguiden — Hitta alla bidrag för ditt företag" />
+        <meta property="og:description" content="Svara på några frågor så söker vår AI igenom hundratals bidrag från Tillväxtverket, Vinnova, Almi, regionala stöd, EU-fonder och fler. Gratis." />
+        <meta property="og:url" content="https://bidragsguiden.vercel.app" />
+
+        {/* Twitter */}
+        <meta name="twitter:title" content="Bidragsguiden — Hitta alla bidrag för ditt företag" />
+        <meta name="twitter:description" content="AI-driven guide som hittar svenska bidrag, stöd och finansiering för ditt företag. Tar 1 minut." />
       </Head>
 
       <div style={{
@@ -1923,6 +1941,37 @@ ${kommunData.benefits.map((b) => `- ${b.name} (${b.agency}): ${b.description}`).
                   )}
                 </div>
 
+                {/* Your company profile summary */}
+                {Object.keys(answers).length > 0 && (
+                  <div style={{
+                    display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16,
+                    padding: "12px 16px", borderRadius: 10,
+                    background: "rgba(255,255,255,0.02)",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                  }}>
+                    {Object.entries(answers).map(([key, value]) => {
+                      const label = (() => {
+                        const val = Array.isArray(value) ? value.join(", ") : String(value);
+                        const readable = val.replace(/_/g, " ");
+                        return readable.length > 30 ? readable.slice(0, 27) + "..." : readable;
+                      })();
+                      const titles = { company_type: "Bolagsform", company_age: "Ålder", employees: "Anställda", region: "Län", revenue: "Omsättning", industry: "Bransch", needs: "Behov", offering_type: "Erbjudande" };
+                      return (
+                        <div key={key} style={{
+                          display: "inline-flex", alignItems: "center", gap: 4,
+                          padding: "3px 10px", borderRadius: 14,
+                          background: "rgba(56, 189, 248, 0.06)",
+                          border: "1px solid rgba(56, 189, 248, 0.1)",
+                          fontSize: 11, color: "#94a3b8",
+                        }}>
+                          <span style={{ fontWeight: 600, color: "#64748b" }}>{titles[key] || key}:</span>
+                          <span>{label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {/* Summary */}
                 <div style={{
                   background: "rgba(16, 185, 129, 0.08)",
@@ -2367,6 +2416,59 @@ ${kommunData.benefits.map((b) => `- ${b.name} (${b.agency}): ${b.description}`).
                           }}>{i + 1}</span>
                           <span>{rec}</span>
                         </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Follow-up questions from AI */}
+                {result.follow_up_questions && result.follow_up_questions.length > 0 && (
+                  <div style={{
+                    marginTop: 24, padding: "20px", borderRadius: 14,
+                    background: "rgba(167, 139, 250, 0.04)",
+                    border: "1px solid rgba(167, 139, 250, 0.15)",
+                  }}>
+                    <h4 style={{
+                      fontSize: 14, fontWeight: 600, color: "#a78bfa",
+                      textTransform: "uppercase", letterSpacing: "1px",
+                      margin: "0 0 6px", fontFamily: "'Space Mono', monospace",
+                    }}>
+                      Vill du specificera mer?
+                    </h4>
+                    <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 14px", lineHeight: 1.5 }}>
+                      Klicka på en fråga för att förfina dina resultat
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {result.follow_up_questions.map((q, i) => (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            setRefineComment(q);
+                            refineResults(q);
+                          }}
+                          disabled={refining}
+                          style={{
+                            padding: "12px 16px", borderRadius: 10,
+                            background: "rgba(167, 139, 250, 0.06)",
+                            border: "1px solid rgba(167, 139, 250, 0.2)",
+                            color: "#cbd5e1", fontSize: 13, fontWeight: 500,
+                            cursor: refining ? "default" : "pointer",
+                            fontFamily: "'DM Sans', sans-serif",
+                            textAlign: "left", lineHeight: 1.5,
+                            transition: "all 0.2s",
+                            opacity: refining ? 0.5 : 1,
+                          }}
+                          onMouseOver={(e) => {
+                            if (!refining) {
+                              e.currentTarget.style.background = "rgba(167, 139, 250, 0.12)";
+                              e.currentTarget.style.borderColor = "rgba(167, 139, 250, 0.4)";
+                            }
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.background = "rgba(167, 139, 250, 0.06)";
+                            e.currentTarget.style.borderColor = "rgba(167, 139, 250, 0.2)";
+                          }}
+                        >{q}</button>
                       ))}
                     </div>
                   </div>

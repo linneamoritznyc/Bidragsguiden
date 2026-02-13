@@ -2173,10 +2173,10 @@ Skriv utkastet på professionell svenska, anpassat för ${grant.grant_name}. Var
   return (
     <>
       <Head>
-        <title>{sectionTitles[activeSection]} -- Bidragsguiden</title>
+        <title>{sectionTitles[activeSection]} — Bidragsguiden</title>
+        <meta name="description" content="Din personliga dashboard för att hantera sparade bidrag, checklistor och deadlines." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <meta name="robots" content="noindex" />
       </Head>
 
       <div style={{ minHeight: "100vh", background: "#f1f5f9", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", color: "#0f172a" }}>
