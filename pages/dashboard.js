@@ -18,6 +18,10 @@ import {
   getUserSearches,
   deleteUserSearch,
   saveDraftSection,
+  getEvents,
+  saveEvent,
+  toggleEventPlan,
+  deleteEvent,
 } from "../lib/dashboard";
 
 const STATUS_CONFIG = {
@@ -358,7 +362,7 @@ const QUIZ_LABELS = {
   company_type: { _title: "Bolagsform", enskild_firma: "Enskild firma", handelsbolag: "HB", kommanditbolag: "KB", aktiebolag: "AB", ekonomisk_forening: "Ekonomisk förening", ideell_forening: "Ideell förening", planning: "Planerar att starta" },
   company_age: { _title: "Ålder", not_started: "Inte startat", less_1y: "< 1 år", "1_3y": "1-3 år", "3_5y": "3-5 år", over_5y: "5+ år" },
   employees: { _title: "Anställda", solo: "0 (solo)", micro: "1-9", small: "10-49", medium: "50-249", large: "250+" },
-  region: { _title: "Län", stockholm: "Stockholm", vastra_gotaland: "Västra Götaland", skane: "Skåne", ostergotland: "Östergötland", uppsala: "Uppsala", jonkoping: "Jönköping", halland: "Halland", orebro: "Örebro", sodermanland: "Södermanland", dalarna: "Dalarna", gavleborg: "Gävleborg", varmland: "Värmland", vastmanland: "Västmanland", norrbotten: "Norrbotten", vasterbotten: "Västerbotten", vasternorrland: "Västernorrland", jamtland: "Jämtland", kalmar: "Kalmar", kronoberg: "Kronoberg", blekinge: "Blekinge", gotland: "Gotland" },
+  region: { _title: "Län", stockholm: "Stockholm", vastra_gotaland: "Västra Götaland", skane: "Skåne", ostergotland: "Östergötland", uppsala: "Uppsala", jonkoping: "Jönköping", halland: "Halland", orebro: "Örebro", sodermanland: "Södermanland", dalarna: "Dalarna", gavleborg: "Gävleborg", varmland: "Värmland", vastmanland: "Västmanland", norrbotten: "Norrbotten", vasterbotten: "Västerbotten", vasternorrland: "Västernorrland", jamtland: "Jämtland", kalmar: "Kalmar", kronoberg: "Kronoberg", blekinge: "Blekinge", gotland: "Gotland", prefer_not_to_say: "Ej angivet" },
   revenue: { _title: "Omsättning", zero: "Ingen", under_300k: "< 300k", "300k_600k": "300-600k", "600k_3m": "600k-3m", "3m_10m": "3-10m", "10m_50m": "10-50m", over_50m: "50m+", prefer_not_to_say: "Ej angivet", under_500k: "< 500k", "500k_3m": "500k-3m" },
   industry: { _title: "Bransch", tech: "Tech/IT", ecommerce: "Handel", manufacturing: "Tillverkning", construction: "Bygg", cleaning_facility: "Städ/Fastighet", hospitality: "Restaurang", health: "Hälsa/Vård", beauty_personal: "Skönhet", transport: "Transport", automotive: "Fordon", consulting: "Konsult", creative: "Kreativ/Kultur", agriculture: "Jordbruk", energy: "Energi", education: "Utbildning", other: "Annat" },
   offering_type: { _title: "Erbjudande", physical_products: "Produkter", services: "Tjänster", both: "Både och", unsure: "Osäkert" },
@@ -472,6 +476,13 @@ export default function Dashboard() {
   const [isMobile, setIsMobile] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
+  const [draftGrant, setDraftGrant] = useState(null);
+  const [draftSection, setDraftSection] = useState("problem");
+  const [draftText, setDraftText] = useState("");
+  const [draftGenerating, setDraftGenerating] = useState(false);
+  const [events, setEvents] = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [eventsLoaded, setEventsLoaded] = useState(false);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -500,14 +511,17 @@ export default function Dashboard() {
     if (!user) return;
     setLoadingGrants(true);
     try {
-      const [grantsData, quizProfile, userSearches] = await Promise.all([
+      const [grantsData, quizProfile, userSearches, userEvents] = await Promise.all([
         getSavedGrants(user.id),
         getQuizAnswers(user.id),
         getUserSearches(user.id),
+        getEvents(user.id),
       ]);
       setGrants(grantsData);
       setQuizData(quizProfile);
       setSearches(userSearches);
+      setEvents(userEvents);
+      setEventsLoaded(true);
     } catch (err) {
       console.error("Failed to load dashboard data:", err);
       showToast("Kunde inte ladda data. Försök ladda om sidan.", "error");
@@ -572,7 +586,6 @@ export default function Dashboard() {
     );
   }
 
-  const filteredGrants = filter === "all" ? grants : grants.filter((g) => g.status === filter);
   const upcomingDeadlines = grants
     .filter((g) => g.deadline && new Date(g.deadline) >= new Date() && g.status !== "archived" && g.status !== "rejected")
     .sort((a, b) => new Date(a.deadline) - new Date(b.deadline)).slice(0, 5);
@@ -586,6 +599,7 @@ export default function Dashboard() {
     { key: "grants", label: "Mina bidrag", count: grants.length },
     { key: "pipeline", label: "Pipeline" },
     { key: "timeline", label: "Tidslinje" },
+    { key: "events", label: "Händelser", count: events.length || null },
     { key: "ai-draft", label: "AI Ansökan", pro: true },
     { key: "searches", label: "Sökhistorik", count: searches.length },
     { key: "profile", label: "Företagsprofil" },
@@ -739,6 +753,67 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {/* Company profile from quiz */}
+      {(() => {
+        const qa = quizData?.quiz_answers || {};
+        const profileFields = ["company_type", "region", "industry", "needs", "revenue", "employees"];
+        const hasProfile = profileFields.some((k) => qa[k]);
+        if (!hasProfile) return (
+          <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "20px", marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a", marginBottom: 4 }}>Din företagsprofil</div>
+              <div style={{ fontSize: 12, color: "#94a3b8" }}>Gör quizet för att få personliga rekommendationer.</div>
+            </div>
+            <a href="/" style={{
+              padding: "8px 16px", borderRadius: 6, background: "#3b82f6", color: "#fff",
+              fontWeight: 600, textDecoration: "none", fontSize: 12, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap",
+            }}>Starta quiz</a>
+          </div>
+        );
+        return (
+          <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "20px", marginBottom: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px" }}>Din företagsprofil</div>
+              <a href="/" style={{ fontSize: 11, color: "#3b82f6", textDecoration: "none", fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>Uppdatera profil &rarr;</a>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {profileFields.map((key) => {
+                if (!qa[key]) return null;
+                const label = getAnswerLabel(key, qa[key]);
+                const title = QUIZ_LABELS[key]?._title || key;
+                return (
+                  <div key={key} style={{
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                    padding: "5px 10px", borderRadius: 6,
+                    background: "#f8fafc", border: "1px solid #e2e8f0",
+                    fontSize: 11, fontFamily: "'DM Sans', sans-serif",
+                  }}>
+                    <span style={{ color: "#94a3b8", fontWeight: 600 }}>{title}:</span>
+                    <span style={{ color: "#334155", fontWeight: 500 }}>{label}</span>
+                  </div>
+                );
+              })}
+              {qa.kommun && qa.kommun !== "prefer_not_to_say" && (
+                <div style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  padding: "5px 10px", borderRadius: 6,
+                  background: "#f8fafc", border: "1px solid #e2e8f0",
+                  fontSize: 11, fontFamily: "'DM Sans', sans-serif",
+                }}>
+                  <span style={{ color: "#94a3b8", fontWeight: 600 }}>Kommun:</span>
+                  <span style={{ color: "#334155", fontWeight: 500 }}>{qa.kommun}</span>
+                </div>
+              )}
+            </div>
+            {quizData?.last_search_at && (
+              <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 10 }}>
+                Senast sökt: {new Date(quizData.last_search_at).toLocaleDateString("sv-SE")}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Deadline warnings + quick summary */}
       {(() => {
@@ -1302,6 +1377,207 @@ export default function Dashboard() {
     );
   };
 
+  // --- Events ---
+  const EVENT_TYPE_CONFIG = {
+    networking: { label: "Nätverk", color: "#2563eb", bg: "#eff6ff" },
+    seminar: { label: "Seminarium", color: "#7c3aed", bg: "#f5f3ff" },
+    workshop: { label: "Workshop", color: "#d97706", bg: "#fffbeb" },
+    conference: { label: "Konferens", color: "#059669", bg: "#ecfdf5" },
+    webinar: { label: "Webbinarium", color: "#0891b2", bg: "#ecfeff" },
+    pitch: { label: "Pitch", color: "#dc2626", bg: "#fef2f2" },
+  };
+
+  const fetchEvents = async () => {
+    if (!user || eventsLoading) return;
+    setEventsLoading(true);
+    try {
+      const answers = quizData?.quiz_answers || {};
+      const response = await fetch("/api/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.id,
+          region: answers.region || null,
+          industry: answers.industry || null,
+          needs: answers.needs || null,
+        }),
+      });
+      if (!response.ok) throw new Error("Failed");
+      const data = await response.json();
+      if (data.events?.length > 0) {
+        const saved = [];
+        for (const evt of data.events) {
+          const result = await saveEvent({ userId: user.id, event: evt });
+          if (result) saved.push(result);
+        }
+        setEvents((prev) => [...prev, ...saved]);
+        showToast(`${saved.length} händelser hittades.`, "success");
+      } else {
+        showToast("Inga händelser hittades just nu.", "info");
+      }
+    } catch (err) {
+      console.error("Failed to fetch events:", err);
+      showToast("Kunde inte hämta händelser. Försök igen.", "error");
+    } finally {
+      setEventsLoading(false);
+    }
+  };
+
+  const handleToggleEventPlan = async (eventId, current) => {
+    const newVal = !current;
+    await toggleEventPlan({ eventId, addedToPlan: newVal });
+    setEvents((prev) => prev.map((e) => e.id === eventId ? { ...e, added_to_plan: newVal } : e));
+    showToast(newVal ? "Tillagd i din tidslinje." : "Borttagen från tidslinjen.", "success");
+  };
+
+  const handleDeleteEvent = async (eventId) => {
+    await deleteEvent(eventId);
+    setEvents((prev) => prev.filter((e) => e.id !== eventId));
+  };
+
+  const renderEvents = () => {
+    const planned = events.filter((e) => e.added_to_plan);
+    const upcoming = events.filter((e) => !e.added_to_plan);
+
+    return (
+      <>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6 }}>
+            Nätverksträffar, seminarier och informationstillfällen som passar din profil.
+          </div>
+          <button
+            onClick={fetchEvents}
+            disabled={eventsLoading}
+            style={{
+              padding: "8px 18px", borderRadius: 6, background: "#3b82f6", color: "#fff",
+              border: "none", fontSize: 12, fontWeight: 600, cursor: eventsLoading ? "default" : "pointer",
+              fontFamily: "'DM Sans', sans-serif", opacity: eventsLoading ? 0.6 : 1, whiteSpace: "nowrap",
+            }}
+          >{eventsLoading ? "Söker..." : "Hitta händelser"}</button>
+        </div>
+
+        {planned.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>I din plan</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {planned.map((evt) => {
+                const typeConf = EVENT_TYPE_CONFIG[evt.event_type] || EVENT_TYPE_CONFIG.networking;
+                const daysUntil = evt.event_date ? Math.ceil((new Date(evt.event_date) - new Date()) / 86400000) : null;
+                return (
+                  <div key={evt.id} style={{
+                    background: "#fff", border: "1px solid #d1fae5", borderLeft: "3px solid #059669",
+                    borderRadius: 8, padding: "14px 16px",
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a", flex: 1 }}>{evt.title}</div>
+                      <span style={{
+                        fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 10,
+                        background: typeConf.bg, color: typeConf.color,
+                      }}>{typeConf.label}</span>
+                    </div>
+                    {evt.organizer && <div style={{ fontSize: 12, color: "#3b82f6", marginBottom: 4, fontWeight: 500 }}>{evt.organizer}</div>}
+                    <div style={{ display: "flex", gap: 12, fontSize: 12, color: "#64748b", marginBottom: 6 }}>
+                      {evt.event_date && <span>{new Date(evt.event_date).toLocaleDateString("sv-SE")}</span>}
+                      {evt.location && <span>{evt.location}</span>}
+                      {daysUntil !== null && daysUntil >= 0 && (
+                        <span style={{ color: daysUntil <= 7 ? "#dc2626" : daysUntil <= 30 ? "#d97706" : "#64748b", fontWeight: 600 }}>
+                          {daysUntil === 0 ? "Idag" : `${daysUntil} dagar`}
+                        </span>
+                      )}
+                    </div>
+                    {evt.description && <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.5, marginBottom: 8 }}>{evt.description}</div>}
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => handleToggleEventPlan(evt.id, evt.added_to_plan)} style={{
+                        padding: "4px 10px", borderRadius: 4, background: "#ecfdf5", border: "1px solid #a7f3d0",
+                        color: "#059669", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                      }}>Ta bort från plan</button>
+                      {evt.url && (
+                        <a href={evt.url} target="_blank" rel="noopener noreferrer" style={{
+                          padding: "4px 10px", borderRadius: 4, background: "#eff6ff", border: "1px solid #bfdbfe",
+                          color: "#2563eb", fontSize: 11, fontWeight: 600, textDecoration: "none", fontFamily: "'DM Sans', sans-serif",
+                        }}>Läs mer</a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {upcoming.length > 0 ? (
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>
+              Rekommenderade händelser
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {upcoming.map((evt) => {
+                const typeConf = EVENT_TYPE_CONFIG[evt.event_type] || EVENT_TYPE_CONFIG.networking;
+                const daysUntil = evt.event_date ? Math.ceil((new Date(evt.event_date) - new Date()) / 86400000) : null;
+                return (
+                  <div key={evt.id} style={{
+                    background: "#fff", border: "1px solid #e2e8f0",
+                    borderRadius: 8, padding: "14px 16px",
+                    transition: "border-color 0.15s",
+                  }}
+                    onMouseOver={(e) => { e.currentTarget.style.borderColor = "#94a3b8"; }}
+                    onMouseOut={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a", flex: 1 }}>{evt.title}</div>
+                      <span style={{
+                        fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 10,
+                        background: typeConf.bg, color: typeConf.color,
+                      }}>{typeConf.label}</span>
+                    </div>
+                    {evt.organizer && <div style={{ fontSize: 12, color: "#3b82f6", marginBottom: 4, fontWeight: 500 }}>{evt.organizer}</div>}
+                    <div style={{ display: "flex", gap: 12, fontSize: 12, color: "#64748b", marginBottom: 6 }}>
+                      {evt.event_date && <span>{new Date(evt.event_date).toLocaleDateString("sv-SE")}</span>}
+                      {evt.location && <span>{evt.location}</span>}
+                      {daysUntil !== null && daysUntil >= 0 && (
+                        <span style={{ color: daysUntil <= 7 ? "#dc2626" : daysUntil <= 30 ? "#d97706" : "#64748b", fontWeight: 600 }}>
+                          {daysUntil === 0 ? "Idag" : `${daysUntil} dagar`}
+                        </span>
+                      )}
+                    </div>
+                    {evt.description && <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.5, marginBottom: 8 }}>{evt.description}</div>}
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => handleToggleEventPlan(evt.id, evt.added_to_plan)} style={{
+                        padding: "4px 10px", borderRadius: 4, background: "#eff6ff", border: "1px solid #bfdbfe",
+                        color: "#2563eb", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                      }}>Lägg till i plan</button>
+                      {evt.url && (
+                        <a href={evt.url} target="_blank" rel="noopener noreferrer" style={{
+                          padding: "4px 10px", borderRadius: 4, background: "#f8fafc", border: "1px solid #e2e8f0",
+                          color: "#334155", fontSize: 11, fontWeight: 600, textDecoration: "none", fontFamily: "'DM Sans', sans-serif",
+                        }}>Läs mer</a>
+                      )}
+                      <button onClick={() => handleDeleteEvent(evt.id)} style={{
+                        padding: "4px 10px", borderRadius: 4, background: "#fef2f2", border: "1px solid #fecaca",
+                        color: "#dc2626", fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                      }}>Ta bort</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : events.length === 0 && (
+          <div style={{
+            background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8,
+            padding: "48px 20px", textAlign: "center",
+          }}>
+            <div style={{ fontSize: 28, color: "#cbd5e1", marginBottom: 8 }}>{"\u2691"}</div>
+            <div style={{ fontSize: 14, color: "#64748b", marginBottom: 6 }}>Inga händelser ännu</div>
+            <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 16 }}>
+              Klicka "Hitta händelser" så söker AI:n igenom Vinnova, Almi, Tillväxtverket och fler efter evenemang som passar din profil.
+            </div>
+          </div>
+        )}
+      </>
+    );
+  };
+
   const renderResources = () => (
     <>
       <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16, lineHeight: 1.6 }}>
@@ -1448,19 +1724,23 @@ export default function Dashboard() {
 
   // --- Timeline (deadline) view ---
   const renderTimeline = () => {
-    const sorted = [...grants]
+    const grantItems = grants
       .filter((g) => g.status !== "archived" && g.status !== "rejected")
-      .sort((a, b) => {
-        if (!a.deadline && !b.deadline) return 0;
-        if (!a.deadline) return 1;
-        if (!b.deadline) return -1;
-        return new Date(a.deadline) - new Date(b.deadline);
-      });
+      .map((g) => ({ type: "grant", date: g.deadline, item: g }));
+    const eventItems = events
+      .filter((e) => e.added_to_plan)
+      .map((e) => ({ type: "event", date: e.event_date, item: e }));
+    const sorted = [...grantItems, ...eventItems].sort((a, b) => {
+      if (!a.date && !b.date) return 0;
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return new Date(a.date) - new Date(b.date);
+    });
 
     return (
       <>
         <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16, lineHeight: 1.5 }}>
-          Alla dina bidrag sorterade efter deadline. Missa aldrig en ansökan.
+          Alla dina bidrag och planerade händelser sorterade efter datum.
         </div>
         {sorted.length === 0 ? (
           <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "48px 20px", textAlign: "center" }}>
@@ -1485,7 +1765,52 @@ export default function Dashboard() {
               </div>
             )}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {sorted.map((g) => {
+              {sorted.map((entry) => {
+                if (entry.type === "event") {
+                  const evt = entry.item;
+                  const days = evt.event_date ? Math.ceil((new Date(evt.event_date) - new Date()) / 86400000) : null;
+                  const typeConf = EVENT_TYPE_CONFIG[evt.event_type] || EVENT_TYPE_CONFIG.networking;
+                  const urgent = days !== null && days >= 0 && days <= 14;
+                  return (
+                    <div key={`evt-${evt.id}`} style={{
+                      display: "grid",
+                      gridTemplateColumns: isMobile ? "1fr" : "100px 40px 1fr 140px 110px 90px",
+                      gap: 8, alignItems: "center",
+                      background: "#fefce8", border: `1px solid ${urgent ? "#fcd34d" : "#fef08a"}`,
+                      borderLeft: `4px solid ${typeConf.color}`,
+                      borderRadius: 10, padding: "14px 16px",
+                      cursor: "pointer", transition: "all 0.12s",
+                    }}
+                      onClick={() => setActiveSection("events")}
+                      onMouseOver={(e) => { e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.06)"; }}
+                      onMouseOut={(e) => { e.currentTarget.style.boxShadow = "none"; }}
+                    >
+                      <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>
+                        {evt.event_date ? new Date(evt.event_date).toLocaleDateString("sv-SE", { day: "numeric", month: "short" }) : "TBD"}
+                      </div>
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 8,
+                        background: typeConf.bg, color: typeConf.color,
+                      }}>{typeConf.label.slice(0, 3)}</span>
+                      <div>
+                        <span style={{ fontWeight: 700, fontSize: 13, color: "#0f172a" }}>{evt.title}</span>
+                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{evt.organizer || ""} {evt.location ? `- ${evt.location}` : ""}</div>
+                      </div>
+                      {!isMobile && <div style={{ fontSize: 12, color: "#94a3b8" }}>-</div>}
+                      {!isMobile && (
+                        <span style={{
+                          fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 5,
+                          background: "#fefce8", color: "#a16207", border: "1px solid #fde68a",
+                          justifySelf: "start",
+                        }}>Händelse</span>
+                      )}
+                      <div style={{ justifySelf: "end" }}>
+                        <DeadlineBadge days={days} />
+                      </div>
+                    </div>
+                  );
+                }
+                const g = entry.item;
                 const days = getDaysUntil(g.deadline);
                 const st = STATUS_CONFIG[g.status] || STATUS_CONFIG.new;
                 const grantData = g.grant_data || {};
@@ -1551,11 +1876,6 @@ export default function Dashboard() {
     { id: "impact", label: "Förväntad effekt" },
     { id: "timeline", label: "Tidplan" },
   ];
-
-  const [draftGrant, setDraftGrant] = useState(null);
-  const [draftSection, setDraftSection] = useState("problem");
-  const [draftText, setDraftText] = useState("");
-  const [draftGenerating, setDraftGenerating] = useState(false);
 
   const generateDraft = async () => {
     const grant = grants.find((g) => g.id === draftGrant);
@@ -1805,6 +2125,7 @@ Skriv utkastet på professionell svenska, anpassat för ${grant.grant_name}. Var
             {activeSection === "grants" && renderGrants()}
             {activeSection === "pipeline" && renderPipeline()}
             {activeSection === "timeline" && renderTimeline()}
+            {activeSection === "events" && renderEvents()}
             {activeSection === "ai-draft" && renderAIDraft()}
             {activeSection === "searches" && renderSearches()}
             {activeSection === "profile" && renderProfile()}

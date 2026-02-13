@@ -556,6 +556,7 @@ VIKTIGT: Använd INGA emojis. Svara ENBART med giltig JSON: {"answer": "Ditt sva
       jamtland: "Jämtlands län", kalmar: "Kalmar län",
       kronoberg: "Kronobergs län", blekinge: "Blekinge län",
       gotland: "Gotlands län",
+      prefer_not_to_say: "vill inte ange region",
     };
     const needsMap = {
       investment: "investering i verksamheten",
@@ -610,12 +611,12 @@ VIKTIGT: Använd INGA emojis. Svara ENBART med giltig JSON: {"answer": "Ditt sva
     return `Du är en expert på ALLA svenska företagsstöd, bidrag och finansieringsmöjligheter. Du har djup kunskap om bidrag från ALLA dessa källor:
 
 STATLIGA MYNDIGHETER:
-- Tillväxtverket (regionalt investeringsstöd, företagsstöd, EU:s regionalfond, konsultcheckar, Klimatklivet)
-- Vinnova (innovationsbidrag, förstudier, samverkansprojekt, utmaningsdriven innovation, Innovationscheck)
-- Energimyndigheten (energieffektivisering, klimatpremien, biogas, fossilfritt, Industriklivet)
-- Naturvårdsverket (Klimatklivet — investeringsstöd för klimatåtgärder, cirkulär ekonomi)
+- Tillväxtverket (regionalt investeringsstöd upp till 40% av investeringskostnaden, EU:s Regionalfond 40-60% medfinansiering 2026, konsultcheckar, närmare 100 bidrag)
+- Vinnova (Innovativa Startups upp till 500 000 kr för max 10 år gamla företag, AI för avancerad digitalisering 2-10 mkr, samverkansprojekt, Innovationscheck)
+- Energimyndigheten (energieffektivisering, klimatpremien, biogas, fossilfritt, Industriklivet, hållbar energi — konceptutveckling till kommersialisering)
+- Naturvårdsverket (Klimatklivet — 20-65% av investeringskostnaden, budget 2,5 miljarder kr 2026, laddinfra, solceller, biogas, eldrift)
 - Jordbruksverket (investeringsstöd jordbruk, landsbygdsutveckling, livsmedelsförädling, startstöd unga jordbrukare)
-- Arbetsförmedlingen (starta eget-bidrag, nystartsjobb, lönebidrag, yrkesintroduktion, introduktionsjobb)
+- Arbetsförmedlingen (starta eget-bidrag 6 mån levnadskostnader, nystartsjobb 1-2.5x arbetsgivaravgiften max 20 000 kr/mån i 6-24 mån, lönebidrag)
 - Försäkringskassan (aktivitetsstöd och starta eget-bidrag för den som uppfyller särskilda villkor — upp till 12 månader)
 - Länsstyrelserna (regionala företagsstöd, specifika för varje län, landsbygdsstöd)
 - Almi (förstudiemedel, innovationslån, mikrolån, mentorskap, Almi Invest riskkapital)
@@ -630,19 +631,40 @@ STATLIGA MYNDIGHETER:
 - Tillgänglighetsrådet (stöd för unga, gravida och funktionsnedsatta företagare via regionala aktörer)
 
 REGIONALA STÖD (${regionMap[finalAnswers.region] || "ej angivet"}):
-- Regionens egna företagsstöd, mikrostöd och investeringsbidrag
+- Regionala mikrostöd: 50% av godkända kostnader, max 30 000 kr, för mikroföretag med max 4 anställda
+- Regionalt administrerat investeringsstöd: för investeringar under 25 mkr, ansöks hos Region/Länsstyrelse
+- Regionspecifika program: innovation, internationalisering, hållbar utveckling, kompetensförsörjning
 - Lokala science parks och inkubatorer
 - Kommunalt näringslivsstöd
 
 EU-FONDER OCH INTERNATIONELLT:
-- Regionalfonden (ERUF) via Tillväxtverket
+- Regionalfonden (ERUF) via Tillväxtverket — 40%, möjligen 60% medfinansiering 2026, utlysningar jan-feb 2026
 - Socialfonden (ESF+) — kompetensutveckling, inkludering
-- Horizon Europe / EIC Accelerator — forskningsintensiva småföretag
+- Horisont Europa — EU:s största forsknings- och innovationsprogram
+- EIC Accelerator — upp till 2,5 MEUR bidrag + 1-10 MEUR riskkapital, budget 634 MEUR 2026, 6 cut-off dates per år
 - Eurostars — samarbetsprojekt med internationell partner
 - NOPEF (nordisk exportfinansiering)
 - COSME / Single Market Programme — EU:s SME-stöd
-- Life-programmet — miljö- och klimatprojekt
+- LIFE-programmet — 60-95% av projektkostnaden, miljö/klimat/natur, ca 600 MEUR/år, deadline sep och mars
+- Digital Europa-programmet — AI-projekt, +100 mkr/år svensk medfinansiering
+- EU SME Support — kostnadsfri rådgivning via Vinnova/Tillväxtverket/Energimyndigheten
 - Nordiska Ministerrådet (nordiska samarbetsprojekt)
+
+SNABBGUIDE — BEHOV TILL RÄTT AKTÖR:
+- Starta företag som arbetslös -> Arbetsförmedlingen
+- Anställa personal billigare -> Arbetsförmedlingen (nystartsjobb/lönebidrag)
+- Investera i maskiner/lokaler -> Tillväxtverket eller Region
+- Innovationsprojekt/FoU -> Vinnova
+- Klimatinvestering -> Naturvårdsverket (Klimatklivet)
+- Miljö/klimat/naturprojekt -> Naturvårdsverket (LIFE)
+- AI-projekt -> Vinnova / Digital Europa
+- Automation/robotisering -> Tillväxtverket
+- Energiprojekt -> Energimyndigheten
+- Mindre stöd under 30 000 kr -> Region (mikrostöd 50% av kostnader)
+- Disruptiv deep-tech -> EIC Accelerator
+- EU-finansiering -> Tillväxtverket / Vinnova / EU SME Support
+
+FAKTA: Över 100 miljarder kronor pumpas årligen in i den svenska ekonomin genom statliga och regionala program.
 
 SKATTELÄTTNADER OCH AVDRAG:
 - Växastödet (halverad arbetsgivaravgift för enskild firma som anställer sin första medarbetare — via Skatteverket)

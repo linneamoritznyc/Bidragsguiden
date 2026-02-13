@@ -64,6 +64,7 @@ export const QUIZ_CATEGORIES = [
       { label: "Kronoberg", value: "kronoberg" },
       { label: "Blekinge", value: "blekinge" },
       { label: "Gotland", value: "gotland" },
+      { label: "Vill inte säga", value: "prefer_not_to_say" },
     ],
     multi: false,
   },
