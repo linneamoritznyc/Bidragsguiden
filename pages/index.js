@@ -943,7 +943,7 @@ VIKTIGT om follow_up_questions:
     }
   };
 
-  const refineResults = async (extraComment) => {
+  const refineResults = async (extraComment, overrideKommun) => {
     // Build feedback summary from user's input (only numeric indices from current results)
     const feedbackEntries = Object.entries(feedback).filter(([idx]) => !isNaN(parseInt(idx)));
     const notEligible = feedbackEntries
@@ -980,7 +980,8 @@ VIKTIGT om follow_up_questions:
     setShowRefineDialog(false);
     setError(null);
 
-    const contextPrompt = buildPrompt(answers, kommun);
+    const effectiveKommun = overrideKommun || kommun;
+    const contextPrompt = buildPrompt(answers, effectiveKommun);
 
     let feedbackPrompt = `${contextPrompt}
 
@@ -1786,6 +1787,8 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                           onClick={() => {
                             setKommun(k);
                             setShowKommunPrompt(false);
+                            // Auto-refine with kommun-specific grants
+                            refineResults(`Användaren har valt kommun: ${k}. Sök efter kommunspecifika bidrag, lokala näringslivsstöd, och regionala program som är tillgängliga i ${k} kommun. Inkludera även stöd från ${k} kommuns näringslivsenhet om sådana finns.`, k);
                           }}
                           style={{
                             padding: "6px 12px", borderRadius: 8,
