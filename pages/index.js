@@ -305,12 +305,10 @@ function GrantCard({ benefit, index, feedback, onFeedbackChange, saved, onDismis
           </button>
           <button
             onClick={() => {
-              if (onDismiss) {
-                // Pass reason along when dismissing
-                if (reasonInput.trim()) {
-                  onFeedbackChange(index, { eligible: "no", reason: reasonInput.trim() });
-                }
-                onDismiss(index, benefit.name);
+              if (eligibility === "no") {
+                onFeedbackChange(index, { eligible: undefined, reason: reasonInput.trim() || "" });
+              } else {
+                onFeedbackChange(index, { eligible: "no", reason: reasonInput.trim() || "" });
               }
             }}
             style={{
@@ -1043,6 +1041,15 @@ VIKTIGT om follow_up_questions:
     setRefining(true);
     setShowRefineDialog(false);
     setError(null);
+
+    // Move "inte aktuellt" grants to dismissed set so they disappear after refine
+    const noGrants = feedbackEntries
+      .filter(([, fb]) => fb.eligible === "no")
+      .map(([idx]) => result.benefits?.[parseInt(idx)]?.name)
+      .filter(Boolean);
+    if (noGrants.length > 0) {
+      setDismissedGrants((prev) => new Set([...prev, ...noGrants]));
+    }
 
     const effectiveKommun = overrideKommun || kommun;
     const contextPrompt = buildPrompt(answers, effectiveKommun);
