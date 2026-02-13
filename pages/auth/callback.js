@@ -33,8 +33,16 @@ export default function AuthCallback() {
           if (typeof window !== "undefined" && window.location.hash) {
             window.history.replaceState(null, "", window.location.pathname);
           }
-          setStatus("Inloggad! Skickar dig vidare...");
-          router.replace("/dashboard");
+          // If user was mid-quiz before logging in, send them back to resume
+          const hasPendingQuiz = typeof window !== "undefined"
+            && localStorage.getItem("bg_pending_quiz");
+          if (hasPendingQuiz) {
+            setStatus("Inloggad! Återställer ditt quiz...");
+            router.replace("/");
+          } else {
+            setStatus("Inloggad! Skickar dig vidare...");
+            router.replace("/dashboard");
+          }
         } else if (event === "INITIAL_SESSION") {
           // No session after processing — auth failed silently
           setStatus("Kunde inte logga in. Försök igen.");

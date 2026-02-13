@@ -435,10 +435,44 @@ export default function Home() {
     init();
   }, []);
 
+  // Save quiz progress to localStorage so it survives OAuth redirects
+  useEffect(() => {
+    if (step >= 0 && step < categories.length && Object.keys(answers).length > 0) {
+      try {
+        localStorage.setItem("bg_pending_quiz", JSON.stringify({
+          answers, step, kommun,
+        }));
+      } catch {}
+    }
+  }, [answers, step, kommun]);
+
+  // Restore quiz progress from localStorage (after OAuth redirect)
+  useEffect(() => {
+    try {
+      const pending = localStorage.getItem("bg_pending_quiz");
+      if (pending && step === -1 && !result) {
+        const data = JSON.parse(pending);
+        if (data.answers && Object.keys(data.answers).length > 0) {
+          setAnswers(data.answers);
+          setStep(data.step ?? 0);
+          if (data.kommun) setKommun(data.kommun);
+          localStorage.removeItem("bg_pending_quiz");
+          // If user just logged in, auto-save their quiz answers to their profile
+          if (user?.id) {
+            saveQuizAnswers({ userId: user.id, answers: data.answers, kommun: data.kommun });
+          }
+        }
+      }
+    } catch {}
+  }, []);
+
   // Load saved quiz answers for logged-in users
   useEffect(() => {
     async function loadSavedProfile() {
       if (!user) return;
+      // Don't overwrite restored pending quiz
+      const hasPending = localStorage.getItem("bg_pending_quiz");
+      if (hasPending) return;
       const data = await getQuizAnswers(user.id);
       if (data?.quiz_answers && Object.keys(data.quiz_answers).length > 0) {
         setSavedProfile(data.quiz_answers);
@@ -965,6 +999,9 @@ VIKTIGT om follow_up_questions:
       }
 
       setResult(parsed);
+
+      // Clear pending quiz from localStorage (quiz completed)
+      try { localStorage.removeItem("bg_pending_quiz"); } catch {}
 
       // Save to Supabase (anonymous session)
       if (sessionId) {

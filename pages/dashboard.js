@@ -1193,14 +1193,108 @@ export default function Dashboard() {
     if (!user) return;
     try {
       const data = await exportUserData(user.id);
+      if (!data) throw new Error("no data");
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `bidragsguiden-min-data-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
       showToast("Data exporterad.", "success");
+    } catch {
+      showToast("Kunde inte exportera data. Försök igen.", "error");
+    }
+  };
+
+  const handleExportDataPDF = async () => {
+    if (!user) return;
+    try {
+      const data = await exportUserData(user.id);
+      if (!data) throw new Error("no data");
+      const date = new Date().toLocaleDateString("sv-SE");
+      const p = data.profile || {};
+      const grantsHTML = (data.saved_grants || []).map((g, i) => {
+        const d = g.grant_data || {};
+        const items = g.bg_checklist_items || [];
+        const st = STATUS_CONFIG[g.status] || STATUS_CONFIG.new;
+        return `
+          <div style="border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:12px;page-break-inside:avoid;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+              <h3 style="margin:0;font-size:15px;color:#1a202c;">${i + 1}. ${g.grant_name}</h3>
+              <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${st.bg};color:${st.color};border:1px solid ${st.border};">${st.label}</span>
+            </div>
+            ${g.grant_agency ? `<p style="margin:0 0 6px;font-size:12px;color:#3b82f6;font-weight:500;">${g.grant_agency}</p>` : ""}
+            ${d.description ? `<p style="margin:0 0 8px;font-size:13px;color:#475569;line-height:1.5;">${d.description}</p>` : ""}
+            ${d.amount ? `<p style="margin:0 0 4px;font-size:12px;color:#6b7280;"><strong>Belopp:</strong> ${d.amount}</p>` : ""}
+            ${g.deadline ? `<p style="margin:0 0 4px;font-size:12px;color:#6b7280;"><strong>Deadline:</strong> ${g.deadline}</p>` : ""}
+            ${g.notes ? `<p style="margin:0 0 4px;font-size:12px;color:#6b7280;"><strong>Anteckningar:</strong> ${g.notes}</p>` : ""}
+            ${items.length > 0 ? `<div style="margin-top:8px;"><strong style="font-size:11px;color:#6b7280;">Checklista:</strong><ul style="margin:4px 0 0;padding-left:20px;">${items.map(c => `<li style="font-size:12px;color:#475569;${c.done ? "text-decoration:line-through;color:#94a3b8;" : ""}">${c.label}</li>`).join("")}</ul></div>` : ""}
+          </div>`;
+      }).join("");
+
+      const searchesHTML = (data.search_history || []).slice(0, 10).map((s) => {
+        const d = new Date(s.created_at).toLocaleDateString("sv-SE");
+        const count = s.result?.benefits?.length || 0;
+        return `<tr><td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#475569;">${d}</td><td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#475569;">${count} bidrag</td></tr>`;
+      }).join("");
+
+      const html = `<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<title>Bidragsguiden - Min data ${date}</title>
+<style>
+  @media print { body { margin: 0; padding: 20px; } .no-print { display: none !important; } }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a202c; max-width: 800px; margin: 0 auto; padding: 24px; }
+</style>
+</head>
+<body>
+  <div style="text-align:center;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #e2e8f0;">
+    <h1 style="margin:0 0 4px;font-size:22px;color:#0f172a;">Bidragsguiden</h1>
+    <p style="margin:0;font-size:13px;color:#6b7280;">Min data &mdash; exporterad ${date}</p>
+  </div>
+
+  <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:20px;">
+    <h2 style="margin:0 0 10px;font-size:15px;color:#0f172a;">Profil</h2>
+    <p style="margin:0 0 4px;font-size:13px;color:#475569;"><strong>Namn:</strong> ${p.display_name || "Ej angivet"}</p>
+    <p style="margin:0 0 4px;font-size:13px;color:#475569;"><strong>E-post:</strong> ${p.email || "Ej angivet"}</p>
+    ${p.gdpr_consent_at ? `<p style="margin:0;font-size:13px;color:#475569;"><strong>Samtycke:</strong> ${new Date(p.gdpr_consent_at).toLocaleDateString("sv-SE")}</p>` : ""}
+  </div>
+
+  ${(data.saved_grants || []).length > 0 ? `
+  <h2 style="font-size:14px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">
+    ${data.saved_grants.length} sparade bidrag
+  </h2>
+  ${grantsHTML}` : `<p style="color:#94a3b8;font-size:13px;">Inga sparade bidrag.</p>`}
+
+  ${searchesHTML ? `
+  <h2 style="font-size:14px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin:24px 0 12px;">Sökhistorik</h2>
+  <table style="width:100%;border-collapse:collapse;"><thead><tr><th style="text-align:left;padding:6px 10px;font-size:11px;color:#94a3b8;border-bottom:2px solid #e2e8f0;">Datum</th><th style="text-align:left;padding:6px 10px;font-size:11px;color:#94a3b8;border-bottom:2px solid #e2e8f0;">Resultat</th></tr></thead><tbody>${searchesHTML}</tbody></table>` : ""}
+
+  <div style="margin-top:24px;padding:12px 16px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;font-size:11px;color:#6b7280;text-align:center;">
+    Exporterad ${date} via Bidragsguiden
+  </div>
+
+  <script>window.onload=function(){window.print();}</script>
+</body>
+</html>`;
+
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, "_blank");
+      if (!win) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `bidragsguiden-min-data-${new Date().toISOString().slice(0, 10)}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      showToast("PDF öppnas i nytt fönster.", "success");
     } catch {
       showToast("Kunde inte exportera data. Försök igen.", "error");
     }
@@ -1323,6 +1417,11 @@ export default function Dashboard() {
               border: "1px solid #bfdbfe", color: "#2563eb", fontSize: 12,
               fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
             }}>Ladda ner all min data (JSON)</button>
+            <button onClick={handleExportDataPDF} style={{
+              padding: "8px 16px", borderRadius: 4, background: "#f0fdf4",
+              border: "1px solid #bbf7d0", color: "#059669", fontSize: 12,
+              fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+            }}>Ladda ner som PDF</button>
             {!confirmDelete ? (
               <button onClick={() => { setConfirmDelete(true); setDeleteConfirmText(""); }} style={{
                 padding: "8px 16px", borderRadius: 4, background: "#fef2f2",
