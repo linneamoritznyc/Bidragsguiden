@@ -2105,6 +2105,17 @@ ${kommunData.benefits.map((b) => `- ${b.name} (${b.agency}): ${b.description}`).
                   </div>
                 )}
 
+                {/* New grant cards header */}
+                {savedGrants.length > 0 && result.benefits?.some((b) => !dismissedGrants.has(b.name) && !new Set(savedGrants.map((g) => g.name)).has(b.name)) && (
+                  <div style={{
+                    fontSize: 11, fontWeight: 700, color: "#38bdf8",
+                    textTransform: "uppercase", letterSpacing: "0.5px",
+                    marginBottom: 12, marginTop: 4,
+                  }}>
+                    Nya rekommenderade bidrag
+                  </div>
+                )}
+
                 {/* New grant cards from AI (exclude dismissed + already saved) */}
                 {(() => {
                   const savedNames = new Set(savedGrants.map((g) => g.name));
