@@ -418,6 +418,7 @@ export default function Home() {
   const [dismissedGrants, setDismissedGrants] = useState(new Set()); // grant names dismissed via "Inte aktuellt"
   const resultRef = useRef(null);
   const prefetchRef = useRef(null); // { promise, baseAnswers }
+  const kommunPrefetchRef = useRef(null); // background kommun-specific fetch
   const [prefetching, setPrefetching] = useState(false);
 
   const categories = QUIZ_CATEGORIES;
@@ -954,6 +955,54 @@ VIKTIGT om follow_up_questions:
     prefetchRef.current = { promise, baseAnswers: { ...partialAnswers } };
   };
 
+  // Background prefetch for kommun-specific grants — runs silently when user selects kommun
+  const startKommunPrefetch = (selectedKommun) => {
+    kommunPrefetchRef.current = null;
+    const contextPrompt = buildPrompt(answers, selectedKommun);
+    const kommunPrompt = `${contextPrompt}
+
+EXTRA UPPDRAG: Användaren har just angett att företaget finns i ${selectedKommun} kommun.
+Fokusera på kommun-specifika och lokala bidrag:
+- Kommunalt näringslivsstöd från ${selectedKommun} kommun
+- Lokala utvecklingsprogram och företagarstöd
+- Regionala program som specifikt gynnar företag i ${selectedKommun}
+- Arbetsförmedlingens lokala stöd i ${selectedKommun}-området
+- Andra lokala/regionala möjligheter
+
+Ge 3-6 kommun-specifika bidrag/stöd som INTE redan nämnts i en generell sökning.
+
+${jsonInstructions}`;
+
+    const promise = fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: kommunPrompt,
+        sessionId: sessionId || undefined,
+        userId: user?.id || undefined,
+      }),
+    })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        const data = await response.json();
+        const text = data.content
+          .map((item) => (item.type === "text" ? item.text : ""))
+          .filter(Boolean)
+          .join("\n");
+        const clean = text.replace(/```json|```/g, "").trim();
+        try {
+          return JSON.parse(clean);
+        } catch {
+          const jsonMatch = clean.match(/\{[\s\S]*\}/);
+          if (jsonMatch) try { return JSON.parse(jsonMatch[0]); } catch {}
+          return null;
+        }
+      })
+      .catch(() => null);
+
+    kommunPrefetchRef.current = { promise, kommun: selectedKommun };
+  };
+
   const fetchResults = async (finalAnswers) => {
     setLoading(true);
     setPrefetching(false);
@@ -1145,6 +1194,19 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
         });
       }
 
+      // Check if we have kommun-specific results from background prefetch
+      const kommunPrefetch = kommunPrefetchRef.current;
+      kommunPrefetchRef.current = null;
+      if (kommunPrefetch) {
+        const kommunData = await kommunPrefetch.promise;
+        if (kommunData?.benefits?.length > 0) {
+          const kommunNames = kommunData.benefits.map((b) => b.name);
+          feedbackPrompt += `\n\nKOMMUN-SPECIFIKA BIDRAG (hämtade i bakgrunden för ${kommunPrefetch.kommun} kommun):
+Följande lokala/kommunala bidrag har hittats. Väv in de mest relevanta i din uppdaterade lista:
+${kommunData.benefits.map((b) => `- ${b.name} (${b.agency}): ${b.description}`).join("\n")}`;
+        }
+      }
+
       const parsed = await callAPI(`${feedbackPrompt}\n\n${jsonInstructions}`);
 
       // Validate the response has expected structure
@@ -1188,6 +1250,7 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
       setDismissedGrants(new Set());
       setKommun(null);
       setShowKommunPrompt(true);
+      kommunPrefetchRef.current = null;
     });
   };
 
@@ -1895,8 +1958,8 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                           onClick={() => {
                             setKommun(k);
                             setShowKommunPrompt(false);
-                            // Auto-refine with kommun-specific grants
-                            refineResults(`Användaren har valt kommun: ${k}. Sök efter kommunspecifika bidrag, lokala näringslivsstöd, och regionala program som är tillgängliga i ${k} kommun. Inkludera även stöd från ${k} kommuns näringslivsenhet om sådana finns.`, k);
+                            // Start background prefetch — kommun-specific results will be woven into next refine
+                            startKommunPrefetch(k);
                           }}
                           style={{
                             padding: "6px 12px", borderRadius: 8,
@@ -1944,8 +2007,13 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                     border: "1px solid rgba(56, 189, 248, 0.2)",
                   }}>
                     Kommun: {kommun}
+                    {kommunPrefetchRef.current && (
+                      <span style={{ fontSize: 10, color: "#64748b", fontStyle: "italic" }}>
+                        (lokala bidrag laddas)
+                      </span>
+                    )}
                     <button
-                      onClick={() => { setKommun(null); setShowKommunPrompt(true); }}
+                      onClick={() => { setKommun(null); setShowKommunPrompt(true); kommunPrefetchRef.current = null; }}
                       style={{
                         background: "none", border: "none", color: "#64748b",
                         cursor: "pointer", fontSize: 14, padding: 0,
