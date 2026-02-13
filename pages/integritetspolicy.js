@@ -147,11 +147,53 @@ export default function Integritetspolicy() {
             <p style={{ margin: "8px 0 0" }}>Vi säljer aldrig din data till tredje part.</p>
           </Section>
 
-          <Section title="Spårning och cookies">
-            <p style={{ margin: 0 }}>
-              Vi använder inga analytics-verktyg, inga spårningscookies och inga reklamskript.
-              Det enda som lagras lokalt är ditt anonyma sessions-ID i localStorage.
+          <Section title="Cookies och lokal lagring">
+            <p style={{ margin: "0 0 12px" }}>
+              <strong style={{ color: "#cbd5e1" }}>Kort sagt:</strong> Bidragsguiden samlar inte in massa data om folk.
+              Vi har inga reklamcookies, ingen spårning åt tredje part och inget Google Analytics.
+              Det enda vi lagrar är det som behövs för att appen ska fungera (inloggning, sökhistorik,
+              sparade bidrag). Men lagen kräver att vi informerar om det ändå.
             </p>
+            <p style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 600, color: "#cbd5e1" }}>
+              Vad är cookies egentligen?
+            </p>
+            <p style={{ margin: "0 0 12px" }}>
+              Cookies är små textfiler som sparas i din webbläsare. De gör att webbplatsen
+              kan "komma ihåg" saker mellan sidbesök, till exempel att du är inloggad.
+              Vi använder också localStorage, som fungerar på samma sätt men bara finns
+              i din webbläsare och aldrig skickas till oss automatiskt.
+            </p>
+            <p style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 600, color: "#cbd5e1" }}>
+              Vad vi lagrar och varför:
+            </p>
+            <ul style={{ margin: "0 0 12px", paddingLeft: 20 }}>
+              <li style={{ marginBottom: 6 }}>
+                <strong style={{ color: "#cbd5e1" }}>Supabase-session (cookie)</strong> — Håller dig
+                inloggad. Utan den måste du logga in varje gång du laddar om sidan. Strikt nödvändig.
+              </li>
+              <li style={{ marginBottom: 6 }}>
+                <strong style={{ color: "#cbd5e1" }}>Sessions-ID (localStorage)</strong> — Ett anonymt
+                UUID som kopplar ihop dina quiz-svar med dina resultat. Kan inte identifiera dig som person.
+              </li>
+              <li style={{ marginBottom: 6 }}>
+                <strong style={{ color: "#cbd5e1" }}>Cookie-samtycke (localStorage)</strong> — Sparar att
+                du har sett och svarat på cookie-bannern, med tidsstämpel som bevis.
+              </li>
+              <li style={{ marginBottom: 6 }}>
+                <strong style={{ color: "#cbd5e1" }}>Quiz-svar (localStorage)</strong> — Sparas lokalt i
+                din webbläsare så vi kan visa "Välkommen tillbaka"-funktionen om du återvänder.
+              </li>
+            </ul>
+            <p style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 600, color: "#cbd5e1" }}>
+              Vad vi INTE gör:
+            </p>
+            <ul style={{ margin: 0, paddingLeft: 20 }}>
+              <li style={{ marginBottom: 6 }}>Vi använder inga reklamcookies eller reklamskript</li>
+              <li style={{ marginBottom: 6 }}>Vi har ingen spårning åt tredje part</li>
+              <li style={{ marginBottom: 6 }}>Vi kör inget Google Analytics eller liknande analysverktyg</li>
+              <li style={{ marginBottom: 6 }}>Vi säljer aldrig din data</li>
+              <li style={{ marginBottom: 6 }}>Vi delar inte dina beteendedata med någon</li>
+            </ul>
           </Section>
 
           <Section title="Dina rättigheter (GDPR)">
