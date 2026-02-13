@@ -3,7 +3,7 @@ import Head from "next/head";
 import { QUIZ_CATEGORIES } from "../components/questions";
 import { KOMMUNER_BY_LAN } from "../components/kommuner";
 import { useAuth } from "../lib/auth";
-import { saveGrant, saveQuizAnswers, getQuizAnswers, saveUserSearch, deleteSavedGrantByName } from "../lib/dashboard";
+import { saveGrant, saveQuizAnswers, getQuizAnswers, saveUserSearch, deleteSavedGrantByName, getExclusions, saveExclusion, removeExclusion } from "../lib/dashboard";
 import {
   getSession,
   saveSearch,
@@ -416,6 +416,7 @@ export default function Home() {
   const [savedProfile, setSavedProfile] = useState(null); // saved quiz answers from profile
   const [showPrefillBanner, setShowPrefillBanner] = useState(false);
   const [dismissedGrants, setDismissedGrants] = useState(new Set()); // grant names dismissed via "Inte aktuellt"
+  const [exclusions, setExclusions] = useState([]); // persistent preferences from database
   const resultRef = useRef(null);
   const prefetchRef = useRef(null); // { promise, baseAnswers }
   const kommunPrefetchRef = useRef(null); // background kommun-specific fetch
@@ -484,6 +485,16 @@ export default function Home() {
       }
     }
     loadSavedProfile();
+  }, [user]);
+
+  // Load persistent exclusions for logged-in users
+  useEffect(() => {
+    async function loadExclusions() {
+      if (!user) return;
+      const ex = await getExclusions(user.id);
+      if (ex.length > 0) setExclusions(ex);
+    }
+    loadExclusions();
   }, [user]);
 
   const refreshHistory = useCallback(async () => {
@@ -564,6 +575,19 @@ export default function Home() {
       } else {
         deleteFeedback({ searchId, benefitIndex: index });
       }
+    }
+
+    // Save as permanent exclusion if "Inte aktuellt" + reason provided
+    if (value.eligible === "no" && value.reason && value.reason.trim() && user?.id) {
+      const benefit = result?.benefits?.[index];
+      saveExclusion({
+        userId: user.id,
+        reason: value.reason.trim(),
+        grantName: benefit?.name || null,
+        category: benefit?.category || null,
+      }).then((updated) => {
+        if (updated) setExclusions(updated);
+      });
     }
   };
 
@@ -805,7 +829,11 @@ KRITISKT — ALDRIG lämna användaren utan hopp:
 - Om få bidrag matchar exakt, inkludera ÄNDÅ närliggande stöd som kan bli aktuella med mindre justeringar
 - Ge alltid konkreta rekommendationer: "Om du gör X kan du kvalificera för Y"
 - Nämn om bidragslandskapet brukar ändras och att det kan vara värt att kolla igen om 6 månader
-- Föreslå konkreta steg: registrera företag hos Almi för rådgivning, kontakta regionens näringslivsenhet, etc.`;
+- Föreslå konkreta steg: registrera företag hos Almi för rådgivning, kontakta regionens näringslivsenhet, etc.${exclusions.length > 0 ? `
+
+ANVÄNDARENS PERMANENTA PREFERENSER (respektera dessa ALLTID):
+Användaren har tidigare angett att följande INTE är relevant. Rekommendera ALDRIG bidrag inom dessa områden:
+${exclusions.map((e) => `- "${e.reason}"${e.grant_name ? ` (angavs vid: ${e.grant_name})` : ""}`).join("\n")}` : ""}`;
   };
 
   const jsonInstructions = `Svara ENBART med giltig JSON (ingen markdown, inga backticks). Formatet ska vara:
@@ -843,6 +871,8 @@ KRITISKT — ALDRIG lämna användaren utan hopp:
 Inkludera 6-12 relevanta bidrag/stöd, sorterade efter deadline (närmast deadline först, löpande sist). Var specifik och korrekt. Inkludera regionala stöd. Blanda inte ihop lån och bidrag — märk tydligt.
 
 VIKTIGT: Använd INGA emojis i texten. Inga symboler som 🎯 💡 📝 ✓ ✗ etc. Ren text utan emojis.
+
+VIKTIGT: Skriv korrekt svenska. Dubbelkolla stavning. Exempel: "program" (inte "programm"), "rådgivning" (inte "rådgivining").
 
 VIKTIGT om recommendations-fältet:
 - Ge ALLTID minst 3 konkreta rekommendationer
@@ -2055,6 +2085,45 @@ ${kommunData.benefits.map((b) => `- ${b.name} (${b.agency}): ${b.description}`).
                     Relevans = hur väl bidraget matchar din situation
                   </span>
                 </div>
+
+                {/* Permanent exclusions */}
+                {exclusions.length > 0 && (
+                  <div style={{
+                    padding: "10px 14px", borderRadius: 10, marginBottom: 16,
+                    background: "rgba(239, 68, 68, 0.04)",
+                    border: "1px solid rgba(239, 68, 68, 0.1)",
+                  }}>
+                    <div style={{
+                      fontSize: 10, color: "#ef4444", textTransform: "uppercase",
+                      letterSpacing: "0.5px", fontWeight: 700, marginBottom: 6,
+                    }}>Dina sparade preferenser</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {exclusions.map((ex, i) => (
+                        <div key={i} style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          padding: "4px 10px", borderRadius: 14,
+                          background: "rgba(239, 68, 68, 0.08)",
+                          border: "1px solid rgba(239, 68, 68, 0.15)",
+                          fontSize: 11, color: "#f87171",
+                        }}>
+                          {ex.reason}
+                          <button
+                            onClick={async () => {
+                              if (!user?.id) return;
+                              const updated = await removeExclusion({ userId: user.id, reason: ex.reason });
+                              if (updated) setExclusions(updated);
+                            }}
+                            style={{
+                              background: "none", border: "none", color: "#64748b",
+                              cursor: "pointer", fontSize: 12, padding: 0, lineHeight: 1,
+                            }}
+                            title="Ta bort preferens"
+                          >x</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Saved grants from previous rounds */}
                 {savedGrants.length > 0 && (
