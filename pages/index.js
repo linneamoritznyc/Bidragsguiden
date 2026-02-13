@@ -420,8 +420,8 @@ export default function Home() {
     const newAnswers = { ...answers, [categoryId]: value };
     setAnswers(newAnswers);
     if (step < categories.length - 1) {
-      // Start AI prefetch after revenue question (step 5) for ~18s head start
-      if (step === categories.length - 3 && !prefetchRef.current) {
+      // Start AI prefetch after region question (step 3) for ~40s head start
+      if (step === 3 && !prefetchRef.current) {
         startPrefetch(newAnswers);
       }
       transition(() => setStep(step + 1));
@@ -435,8 +435,8 @@ export default function Home() {
     setAnswers(newAnswers);
     setMultiSelect([]);
     if (step < categories.length - 1) {
-      // Start AI prefetch after revenue question (step 5) for ~18s head start
-      if (step === categories.length - 3 && !prefetchRef.current) {
+      // Start AI prefetch after region question (step 3) for ~40s head start
+      if (step === 3 && !prefetchRef.current) {
         startPrefetch(newAnswers);
       }
       transition(() => setStep(step + 1));
@@ -819,12 +819,14 @@ VIKTIGT om follow_up_questions:
   };
 
   // Pre-fetch: fire the API call early while user answers remaining questions
-  // Fires after revenue (step 5) — defaults industry & offering_type for ~18s head start
+  // Fires after region (step 3) — defaults needs, revenue, industry & offering_type for ~40s head start
   const startPrefetch = (partialAnswers) => {
     prefetchRef.current = null;
     setPrefetching(true);
     const prefetchAnswers = {
       ...partialAnswers,
+      needs: partialAnswers.needs || ["investment", "product_dev"],
+      revenue: partialAnswers.revenue || "under_300k",
       industry: partialAnswers.industry || ["other"],
       offering_type: partialAnswers.offering_type || "both",
     };
