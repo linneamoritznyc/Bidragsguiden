@@ -2092,7 +2092,7 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                   Förfina rekommendationer
                 </button>
 
-                {/* Follow-up questions from AI */}
+                {/* Refine dialog */}
                 {showRefineDialog && (
                   <div style={{
                     marginTop: 12, padding: "20px", borderRadius: 14,
@@ -2100,102 +2100,54 @@ KRITISKT — BESVARA ANVÄNDARENS FRÅGOR:
                     border: "1px solid rgba(167, 139, 250, 0.2)",
                     animation: "fadeSlide 0.3s ease",
                   }}>
-                    {result.follow_up_questions && result.follow_up_questions.length > 0 ? (
-                      <>
-                        <h4 style={{ fontSize: 15, fontWeight: 600, color: "#a78bfa", margin: "0 0 6px" }}>
-                          Förfina dina resultat
-                        </h4>
-                        <p style={{ fontSize: 13, color: "#94a3b8", margin: "0 0 14px", lineHeight: 1.5 }}>
-                          Svara på en fråga nedan så anpassar vi rekommendationerna.
-                        </p>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                          {result.follow_up_questions.map((q, i) => (
-                            <button
-                              key={i}
-                              onClick={() => {
-                                refineResults(q);
-                                setRefineComment("");
-                              }}
-                              style={{
-                                padding: "12px 16px", borderRadius: 10,
-                                background: "rgba(255,255,255,0.03)",
-                                border: "1px solid rgba(167, 139, 250, 0.2)",
-                                color: "#e2e8f0", fontSize: 14, fontWeight: 500,
-                                cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
-                                textAlign: "left", lineHeight: 1.4,
-                                transition: "all 0.2s",
-                              }}
-                              onMouseOver={(e) => {
-                                e.currentTarget.style.background = "rgba(167, 139, 250, 0.1)";
-                                e.currentTarget.style.borderColor = "rgba(167, 139, 250, 0.4)";
-                              }}
-                              onMouseOut={(e) => {
-                                e.currentTarget.style.background = "rgba(255,255,255,0.03)";
-                                e.currentTarget.style.borderColor = "rgba(167, 139, 250, 0.2)";
-                              }}
-                            >{q}</button>
-                          ))}
-                        </div>
-                      </>
-                    ) : (
-                      <p style={{ fontSize: 13, color: "#94a3b8", margin: "0 0 14px", lineHeight: 1.5 }}>
-                        Klicka Förfina för att få uppdaterade rekommendationer baserat på din feedback.
-                      </p>
-                    )}
-
-                    {/* Custom question input */}
-                    <div style={{ marginTop: 14, borderTop: "1px solid rgba(167, 139, 250, 0.1)", paddingTop: 14 }}>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <input
-                          value={refineComment}
-                          onChange={(e) => setRefineComment(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && refineComment.trim()) {
-                              refineResults(refineComment);
-                              setRefineComment("");
-                            }
-                          }}
-                          placeholder="Eller skriv en egen fråga..."
-                          style={{
-                            flex: 1, padding: "10px 14px", borderRadius: 10,
-                            border: "1px solid rgba(167, 139, 250, 0.2)",
-                            background: "rgba(255,255,255,0.03)", color: "#e2e8f0",
-                            fontSize: 13, fontFamily: "'DM Sans', sans-serif",
-                            outline: "none",
-                          }}
-                          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(167, 139, 250, 0.5)"; }}
-                          onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(167, 139, 250, 0.2)"; }}
-                        />
-                        <button
-                          onClick={() => {
-                            if (refineComment.trim()) {
-                              refineResults(refineComment);
-                              setRefineComment("");
-                            } else {
-                              refineResults("");
-                            }
-                          }}
-                          style={{
-                            padding: "10px 20px", borderRadius: 10,
-                            background: "linear-gradient(135deg, #a78bfa, #38bdf8)",
-                            color: "#0a1628", border: "none",
-                            fontSize: 13, fontWeight: 700,
-                            cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
-                            whiteSpace: "nowrap",
-                          }}
-                        >Förfina</button>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => { setShowRefineDialog(false); setRefineComment(""); }}
+                    <h4 style={{ fontSize: 15, fontWeight: 600, color: "#a78bfa", margin: "0 0 6px" }}>
+                      Förfina dina resultat
+                    </h4>
+                    <p style={{ fontSize: 13, color: "#94a3b8", margin: "0 0 14px", lineHeight: 1.6 }}>
+                      Finns det något mer du vill berätta om ditt företag? Klistra gärna in en
+                      sammanfattning av ditt företag, din exakta bransch, produkt eller tjänst,
+                      och dina mål. Detta är inte obligatoriskt — du kan även förfina utan extra information.
+                    </p>
+                    <textarea
+                      value={refineComment}
+                      onChange={(e) => setRefineComment(e.target.value)}
+                      placeholder={"T.ex. \"Vi är ett litet teknikbolag i Sollentuna som bygger en SaaS-plattform för restauranger. Vi vill expandera till Norge och behöver kapital för produktutveckling och marknadsföring.\""}
+                      rows={4}
                       style={{
-                        marginTop: 10, width: "100%", padding: "8px",
-                        background: "none", border: "none",
-                        color: "#64748b", fontSize: 12, cursor: "pointer",
-                        fontFamily: "'DM Sans', sans-serif",
+                        width: "100%", padding: "12px 14px", borderRadius: 10,
+                        border: "1px solid rgba(167, 139, 250, 0.2)",
+                        background: "rgba(255,255,255,0.03)", color: "#e2e8f0",
+                        fontSize: 13, fontFamily: "'DM Sans', sans-serif",
+                        outline: "none", resize: "vertical", lineHeight: 1.5,
+                        boxSizing: "border-box",
                       }}
-                    >Stäng</button>
+                      onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(167, 139, 250, 0.5)"; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(167, 139, 250, 0.2)"; }}
+                    />
+                    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                      <button
+                        onClick={() => {
+                          refineResults(refineComment.trim());
+                          setRefineComment("");
+                        }}
+                        style={{
+                          flex: 1, padding: "12px 20px", borderRadius: 10,
+                          background: "linear-gradient(135deg, #a78bfa, #38bdf8)",
+                          color: "#0a1628", border: "none",
+                          fontSize: 13, fontWeight: 700,
+                          cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                        }}
+                      >{refineComment.trim() ? "Förfina med extra info" : "Förfina utan extra info"}</button>
+                      <button
+                        onClick={() => { setShowRefineDialog(false); setRefineComment(""); }}
+                        style={{
+                          padding: "12px 16px", borderRadius: 10,
+                          background: "none", border: "1px solid rgba(255,255,255,0.08)",
+                          color: "#64748b", fontSize: 13, cursor: "pointer",
+                          fontFamily: "'DM Sans', sans-serif",
+                        }}
+                      >Stäng</button>
+                    </div>
                   </div>
                 )}
 
