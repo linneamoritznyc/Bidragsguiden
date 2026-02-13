@@ -12,15 +12,13 @@ export default function AuthCallback() {
       return;
     }
 
-    // Check for error in URL (hash or query params)
+    // Check for error in URL
     if (typeof window !== "undefined") {
       const hash = window.location.hash;
       const search = window.location.search;
-      const errorInHash = hash.includes("error=");
-      const errorInQuery = search.includes("error=");
-      if (errorInHash || errorInQuery) {
-        const params = new URLSearchParams(errorInHash ? hash.substring(1) : search.substring(1));
-        const error = params.get("error_description") || params.get("error") || "Okänt fel";
+      if (hash.includes("error=") || search.includes("error=")) {
+        const params = new URLSearchParams(hash.includes("error=") ? hash.substring(1) : search);
+        const error = params.get("error_description") || params.get("error") || "Okant fel";
         console.error("OAuth error:", error);
         setStatus("Inloggning misslyckades: " + error);
         setTimeout(() => router.replace("/login"), 3000);
@@ -28,20 +26,19 @@ export default function AuthCallback() {
       }
     }
 
-    let redirected = false;
+    let done = false;
 
-    const handleSuccess = (user) => {
-      if (redirected) return;
-      redirected = true;
-      // Clean URL (remove tokens/code from address bar)
-      if (typeof window !== "undefined" && (window.location.hash || window.location.search.includes("code="))) {
+    const redirect = (user) => {
+      if (done) return;
+      done = true;
+      // Clean URL
+      if (typeof window !== "undefined") {
         window.history.replaceState(null, "", window.location.pathname);
       }
-      // If user was mid-quiz before logging in, send them back to resume
       const hasPendingQuiz = typeof window !== "undefined"
         && localStorage.getItem("bg_pending_quiz");
       if (hasPendingQuiz) {
-        setStatus("Inloggad! Återställer ditt quiz...");
+        setStatus("Inloggad! Aterstaller ditt quiz...");
         router.replace("/");
       } else {
         setStatus("Inloggad! Skickar dig vidare...");
@@ -49,55 +46,62 @@ export default function AuthCallback() {
       }
     };
 
-    const handleFailure = (msg) => {
-      if (redirected) return;
-      redirected = true;
-      setStatus(msg || "Kunde inte logga in. Försök igen.");
-      setTimeout(() => router.replace("/login"), 2000);
-    };
+    async function handleAuth() {
+      const code = new URLSearchParams(window.location.search).get("code");
 
-    // Strategy 1: Handle PKCE code exchange explicitly (when URL has ?code=)
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get("code");
+      // Step 1: Check if session already exists (AuthProvider may have handled it)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        redirect(session.user);
+        return;
+      }
 
-    if (code) {
-      supabase.auth.exchangeCodeForSession(code)
-        .then(({ data, error }) => {
-          if (error) {
-            console.error("Code exchange error:", error);
-            // Don't fail immediately — the AuthProvider might handle it via onAuthStateChange
-          }
+      // Step 2: Try PKCE code exchange explicitly
+      if (code) {
+        try {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
           if (data?.session?.user) {
-            handleSuccess(data.session.user);
+            redirect(data.session.user);
+            return;
           }
-        })
-        .catch((err) => {
-          console.error("Code exchange exception:", err);
-        });
-    }
-
-    // Strategy 2: Listen for auth state changes (handles implicit flow + fallback)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (session?.user) {
-          handleSuccess(session.user);
-        } else if (event === "INITIAL_SESSION" && !code) {
-          // Only fail on INITIAL_SESSION if there's no code to exchange
-          // (code exchange might still be in progress)
-          handleFailure();
+          if (error) {
+            console.warn("Code exchange error:", error.message);
+            // Code might already be consumed by detectSessionInUrl — wait and retry
+          }
+        } catch (err) {
+          console.warn("Code exchange exception:", err);
         }
       }
-    );
 
-    // Safety timeout (longer to account for slow code exchange)
-    const timeout = setTimeout(() => {
-      handleFailure("Tog för lång tid. Försök igen.");
-    }, 12000);
+      // Step 3: Wait and check again (detectSessionInUrl might be processing)
+      await new Promise((r) => setTimeout(r, 1500));
+      const { data: { session: retrySession } } = await supabase.auth.getSession();
+      if (retrySession?.user) {
+        redirect(retrySession.user);
+        return;
+      }
 
-    return () => {
-      subscription.unsubscribe();
-      clearTimeout(timeout);
-    };
+      // Step 4: Last resort — listen for auth state change
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        (event, session) => {
+          if (session?.user) {
+            redirect(session.user);
+            subscription.unsubscribe();
+          }
+        }
+      );
+
+      // Step 5: Final timeout
+      setTimeout(() => {
+        if (!done) {
+          subscription.unsubscribe();
+          setStatus("Kunde inte logga in. Forsok igen.");
+          setTimeout(() => router.replace("/login"), 2000);
+        }
+      }, 10000);
+    }
+
+    handleAuth();
   }, [router]);
 
   return (
